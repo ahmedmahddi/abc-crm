@@ -58,3 +58,5 @@ blob-report/
 # runtime uploads/cache
 uploads/
 storage/
+
+.vercel
