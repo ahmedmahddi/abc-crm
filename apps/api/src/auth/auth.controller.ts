@@ -75,10 +75,11 @@ function setAuthCookies(
   result: { accessToken: string; refreshToken: string; csrfToken: string },
 ) {
   const secure = process.env.COOKIE_SECURE === "true";
-  response.cookie("access_token", result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE_MS, secure));
-  response.cookie("refresh_token", result.refreshToken, cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure));
+  const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
+  response.cookie("access_token", result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE_MS, secure, sameSite));
+  response.cookie("refresh_token", result.refreshToken, cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure, sameSite));
   response.cookie("csrf_token", result.csrfToken, {
-    ...cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure),
+    ...cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure, sameSite),
     httpOnly: false,
   });
 }
@@ -89,6 +90,6 @@ function clearAuthCookies(response: Response) {
   response.clearCookie("csrf_token", { path: "/" });
 }
 
-function cookieOptions(maxAge: number, secure: boolean) {
-  return { httpOnly: true, sameSite: "lax" as const, secure, maxAge, path: "/" };
+function cookieOptions(maxAge: number, secure: boolean, sameSite: "lax" | "none") {
+  return { httpOnly: true, sameSite, secure, maxAge, path: "/" };
 }
