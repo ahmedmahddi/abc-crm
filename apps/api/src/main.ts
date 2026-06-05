@@ -8,11 +8,11 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
-  const webOrigin = config.get<string>("APP_URL") ?? "http://localhost:3000";
+  const webOrigins = parseAllowedOrigins(config.get<string>("APP_URL") ?? "http://localhost:3000");
 
   app.setGlobalPrefix("api/v1");
   app.enableCors({
-    origin: webOrigin,
+    origin: webOrigins,
     credentials: true,
   });
 
@@ -39,3 +39,10 @@ async function bootstrap() {
 }
 
 void bootstrap();
+
+function parseAllowedOrigins(value: string) {
+  return value
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
