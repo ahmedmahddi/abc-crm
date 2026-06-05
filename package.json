@@ -1,0 +1,29 @@
+{
+  "name": "abc-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PWA CRM for ABC Consulting / bureau d'étude missions.",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @abc/db prisma:generate",
+    "db:migrate": "pnpm --filter @abc/db prisma:migrate",
+    "db:deploy": "pnpm --filter @abc/db prisma:deploy",
+    "db:studio": "pnpm --filter @abc/db prisma:studio",
+    "seed:admin": "pnpm --filter @abc/api seed:admin"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "@types/node": "25.9.1",
+    "eslint": "9.39.4",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.8.3",
+    "turbo": "2.9.16",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.60.1"
+  }
+}

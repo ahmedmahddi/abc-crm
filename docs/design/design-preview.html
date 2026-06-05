@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ABC CRM - Design system preview</title>
+    <style>
+      :root {
+        --primary: #125885;
+        --primary-dark: #0e476c;
+        --primary-light: #eaf2f7;
+        --background: #f7f9fb;
+        --surface: #fff;
+        --text: #0f1720;
+        --muted: #5e6970;
+        --border: #d9e0e4;
+        --success: #1f7a5a;
+        --warning: #c48a1a;
+        --danger: #c44545;
+        --radius: 7px;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--background); color: var(--text); font: 14px/1.5 Arial, sans-serif; }
+      main { display: grid; gap: 24px; margin: auto; max-width: 960px; padding: 24px 16px; }
+      h1, h2, p { margin: 0; }
+      h1 { font-size: 28px; }
+      h2 { font-size: 16px; }
+      .muted { color: var(--muted); }
+      .section { display: grid; gap: 12px; }
+      .surface { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .swatch { width: 104px; }
+      .swatch-color { height: 52px; border: 1px solid var(--border); border-radius: 4px; }
+      .swatch p { margin-top: 4px; font-size: 12px; }
+      button, input, select { min-height: 44px; border-radius: 7px; border: 1px solid var(--border); font: inherit; }
+      button { padding: 0 16px; background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+      button.secondary { background: white; color: var(--text); border-color: var(--border); }
+      button.danger { background: var(--danger); border-color: var(--danger); }
+      input, select { padding: 0 12px; background: white; color: var(--text); }
+      .badge { display: inline-block; border: 1px solid #b8d0df; border-radius: 4px; background: var(--primary-light); color: var(--primary-dark); padding: 2px 8px; font-size: 12px; font-weight: 600; }
+      .client { display: grid; gap: 12px; }
+      .client-header { display: flex; justify-content: space-between; gap: 12px; }
+      dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 0; font-size: 12px; }
+      dt { color: var(--muted); }
+      dd { margin: 2px 0 0; font-weight: 600; }
+      @media (min-width: 720px) {
+        main { padding: 40px 24px; }
+        .client { grid-template-columns: 1.4fr 1fr 0.5fr 1fr; align-items: center; }
+        .client dl { display: contents; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="section">
+        <p class="muted">ABC Consulting</p>
+        <h1>Design system operationnel</h1>
+        <p class="muted">Surfaces plates, hierarchie calme et controles utilisables sur mobile.</p>
+      </header>
+      <section class="section">
+        <h2>Palette</h2>
+        <div class="row">
+          <div class="swatch"><div class="swatch-color" style="background:#125885"></div><p>Primary</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#eaf2f7"></div><p>Primary light</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#f7f9fb"></div><p>Background</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#d9e0e4"></div><p>Border</p></div>
+          <div class="swatch"><div class="swatch-color" style="background:#c44545"></div><p>Danger</p></div>
+        </div>
+      </section>
+      <section class="section">
+        <h2>Controles</h2>
+        <div class="row">
+          <button>Action principale</button>
+          <button class="secondary">Action secondaire</button>
+          <button class="danger">Archiver</button>
+          <span class="badge">Synchronise</span>
+        </div>
+        <div class="row">
+          <input aria-label="Rechercher un client" placeholder="Entreprise ou matricule fiscal" />
+          <select aria-label="Etat du dossier"><option>Clients actifs</option><option>Archives</option></select>
+        </div>
+      </section>
+      <section class="section">
+        <h2>Ligne client mobile-first</h2>
+        <article class="client surface">
+          <div class="client-header"><strong>Entreprise</strong><span class="badge">Actif</span></div>
+          <dl>
+            <div><dt>Secteur</dt><dd>Activite</dd></div>
+            <div><dt>Effectif</dt><dd>0</dd></div>
+            <div><dt>Responsable</dt><dd>Non attribue</dd></div>
+          </dl>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,415 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  RESPONSABLE
+  CONSULTANT
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConsultantStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PersonnelType {
+  CADRE
+  NON_CADRE
+}
+
+enum PersonnelSource {
+  MANUAL
+  ORGANIGRAMME_EXTRACTION
+}
+
+enum FileEntityType {
+  CLIENT
+  CONSULTANT
+  MISSION
+  ORDRE_MISSION
+  TEMPLATE
+  USER
+  OTHER
+}
+
+enum ClientDocumentType {
+  LOGO
+  RNE
+  PATENTE
+  ORGANIGRAMME
+  PERSONNEL_LIST
+  OTHER
+}
+
+enum MissionType {
+  AUDIT
+  FORMATION
+  ASSISTANCE
+}
+
+enum MissionMode {
+  ONLINE
+  PRESENTIELLE
+}
+
+enum MissionStatus {
+  PLANNED
+  DONE
+  CANCELLED
+}
+
+enum MissionConsultantRole {
+  RESPONSABLE
+  PARTICIPANT
+}
+
+enum OrdreMissionStatus {
+  DRAFT
+  VALIDATED
+  PRINTED
+  CANCELLED
+  ARCHIVED
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  ARCHIVE
+  RESTORE
+  DISABLE
+}
+
+enum SyncMutationStatus {
+  APPLIED
+  REJECTED
+  CONFLICT
+}
+
+model User {
+  id              String               @id @default(uuid())
+  name            String
+  email           String               @unique
+  passwordHash    String
+  role            UserRole             @default(CONSULTANT)
+  status          UserStatus           @default(ACTIVE)
+  lastLoginAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  sessions        Session[]
+  passwordResets  PasswordResetToken[]
+  createdMissions Mission[]            @relation("MissionCreatedBy")
+  createdOrdres   OrdreMission[]       @relation("OrdreCreatedBy")
+  uploadedFiles   File[]               @relation("UploadedFiles")
+  activityLogs    ActivityLog[]
+  syncMutations   SyncMutation[]
+  consultant      Consultant?
+}
+
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Consultant {
+  id              String              @id @default(uuid())
+  fullName        String
+  phone           String?
+  email           String              @unique
+  status          ConsultantStatus    @default(ACTIVE)
+  userId          String?             @unique
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  archivedAt      DateTime?
+  version         Int                 @default(1)
+
+  user            User?               @relation(fields: [userId], references: [id])
+  clients         ClientConsultant[]
+  missions        MissionConsultant[]
+  ordres          OrdreMissionConsultant[]
+}
+
+model Client {
+  id                    String              @id @default(uuid())
+  companyName           String
+  fiscalNumber          String              @unique
+  address               String
+  zone                  String?
+  activitySector        String
+  applicationDomain     String?
+  color                 String              @default("#125885")
+  cadreCount            Int                 @default(0)
+  nonCadreCount         Int                 @default(0)
+  status                ClientStatus        @default(ACTIVE)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  archivedAt            DateTime?
+  version               Int                 @default(1)
+
+  consultants           ClientConsultant[]
+  personnel             ClientPersonnel[]
+  documents             ClientDocument[]
+  missions              Mission[]
+  ordresMission         OrdreMission[]
+
+  @@index([companyName])
+  @@index([activitySector])
+  @@index([status])
+}
+
+model ClientConsultant {
+  id            String      @id @default(uuid())
+  clientId      String
+  consultantId  String
+  assignedAt    DateTime    @default(now())
+
+  client        Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  consultant    Consultant  @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, consultantId])
+}
+
+model ClientPersonnel {
+  id          String           @id @default(uuid())
+  clientId    String
+  fullName    String
+  position    String?
+  phone       String?
+  email       String?
+  type        PersonnelType
+  source      PersonnelSource  @default(MANUAL)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model File {
+  id            String          @id @default(uuid())
+  originalName  String
+  storedName    String
+  bucket        String
+  path          String
+  mimeType      String
+  size          Int
+  entityType    FileEntityType
+  entityId      String?
+  uploadedById  String?
+  createdAt     DateTime        @default(now())
+
+  uploadedBy    User?           @relation("UploadedFiles", fields: [uploadedById], references: [id])
+  clientDocs    ClientDocument[]
+
+  @@index([entityType, entityId])
+}
+
+model ClientDocument {
+  id        String              @id @default(uuid())
+  clientId  String
+  fileId    String
+  type      ClientDocumentType
+  createdAt DateTime            @default(now())
+
+  client    Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  file      File                @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, type, fileId])
+}
+
+model Mission {
+  id             String               @id @default(uuid())
+  clientId       String
+  title          String
+  missionType    MissionType
+  missionMode    MissionMode
+  startDateTime  DateTime
+  endDateTime    DateTime
+  location       String?
+  description    String?
+  status         MissionStatus        @default(PLANNED)
+  createdById    String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  archivedAt     DateTime?
+  version        Int                  @default(1)
+
+  client         Client               @relation(fields: [clientId], references: [id])
+  createdBy      User                 @relation("MissionCreatedBy", fields: [createdById], references: [id])
+  consultants    MissionConsultant[]
+  ordreMission   OrdreMission?
+
+  @@index([clientId])
+  @@index([startDateTime])
+  @@index([status])
+}
+
+model MissionConsultant {
+  id            String                @id @default(uuid())
+  missionId     String
+  consultantId  String
+  role          MissionConsultantRole @default(PARTICIPANT)
+
+  mission       Mission               @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  consultant    Consultant            @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, consultantId])
+}
+
+model OrdreMission {
+  id             String                  @id @default(uuid())
+  reference      String                  @unique
+  missionId      String?                 @unique
+  clientId       String
+  missionType    MissionType
+  missionMode    MissionMode
+  startDateTime  DateTime
+  endDateTime    DateTime
+  location       String?
+  object         String
+  description    String?
+  status         OrdreMissionStatus      @default(DRAFT)
+  templateId     String?
+  createdById    String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  archivedAt     DateTime?
+  requiresReview Boolean                 @default(false)
+  version        Int                     @default(1)
+
+  mission        Mission?                @relation(fields: [missionId], references: [id])
+  client         Client                  @relation(fields: [clientId], references: [id])
+  template       OrdreMissionTemplate?   @relation(fields: [templateId], references: [id])
+  createdBy      User                    @relation("OrdreCreatedBy", fields: [createdById], references: [id])
+  consultants    OrdreMissionConsultant[]
+
+  @@index([clientId])
+  @@index([startDateTime])
+  @@index([status])
+}
+
+model OrdreMissionConsultant {
+  id              String         @id @default(uuid())
+  ordreMissionId  String
+  consultantId    String
+
+  ordreMission    OrdreMission   @relation(fields: [ordreMissionId], references: [id], onDelete: Cascade)
+  consultant      Consultant     @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@unique([ordreMissionId, consultantId])
+}
+
+model OrdreMissionTemplate {
+  id          String          @id @default(uuid())
+  name        String
+  contentHtml String
+  isDefault   Boolean         @default(false)
+  status      String          @default("ACTIVE")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  archivedAt  DateTime?
+  version     Int             @default(1)
+
+  ordres      OrdreMission[]
+}
+
+model ActivityLog {
+  id          String       @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  description String?
+  createdAt   DateTime     @default(now())
+
+  user        User?        @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model OrdreMissionReferenceCounter {
+  year       Int      @id
+  lastValue  Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+model SyncMutation {
+  id                String              @id @default(uuid())
+  clientMutationId  String              @unique
+  userId            String
+  entityType        String
+  entityId          String?
+  operation         SyncOperation
+  baseVersion       Int?
+  status            SyncMutationStatus
+  result            Json?
+  createdAt         DateTime            @default(now())
+  appliedAt         DateTime?
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model SyncConflict {
+  id                String        @id @default(uuid())
+  clientMutationId  String        @unique
+  userId            String
+  entityType        String
+  entityId          String
+  baseVersion       Int
+  serverVersion     Int
+  localPayload      Json
+  serverPayload     Json
+  resolvedAt        DateTime?
+  resolvedById      String?
+  createdAt         DateTime      @default(now())
+
+  @@index([userId, resolvedAt])
+  @@index([entityType, entityId])
+}
