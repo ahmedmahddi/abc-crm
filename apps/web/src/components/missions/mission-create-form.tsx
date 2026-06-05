@@ -26,9 +26,10 @@ export function MissionCreateForm() {
   const clients = useQuery({ queryKey: ["clients", "active-options"], queryFn: () => apiFetch<ListResponse<Client>>("/clients?status=ACTIVE&page=1&perPage=100") });
   const consultants = useQuery({ queryKey: ["consultants", "active-options"], queryFn: () => apiFetch<ListResponse<Consultant>>("/consultants?status=ACTIVE&page=1&perPage=100") });
   const form = useForm<z.input<typeof missionCreateSchema>, unknown, MissionCreateInput>({
-    defaultValues: { clientId: "", consultantIds: [], description: "", endDateTime: "", location: "", missionMode: "PRESENTIELLE", missionType: "AUDIT", startDateTime: "", status: "PLANNED", title: "" },
+    defaultValues: { clientId: "", consultantAssignments: [], description: "", endDateTime: "", location: "", missionMode: "PRESENTIELLE", missionType: "AUDIT", startDateTime: "", status: "PLANNED", title: "" },
     resolver: zodResolver(missionCreateSchema),
   });
+  const consultantAssignments = form.watch("consultantAssignments") ?? [];
   const mutation = useMutation({
     mutationFn: (input: MissionCreateInput): Promise<Record<string, unknown> | QueuedOfflineResult> => {
       if (shouldQueueOffline()) {
@@ -52,16 +53,57 @@ export function MissionCreateForm() {
       <Field><FieldLabel htmlFor="location">Lieu ou lien de réunion</FieldLabel><Input id="location" {...form.register("location")} /><FieldDescription>Renseignez l’adresse client ou le lien de visioconférence utile au consultant.</FieldDescription></Field>
       <Field><FieldLabel htmlFor="description">Consignes</FieldLabel><Textarea id="description" {...form.register("description")} /></Field>
     </FieldGroup></CardContent></Card>
-    <Card><CardHeader><CardTitle>Équipe affectée</CardTitle><CardDescription>Le premier consultant sélectionné devient responsable de mission.</CardDescription></CardHeader><CardContent>
+    <Card><CardHeader><CardTitle>Équipe affectée</CardTitle><CardDescription>Choisissez les consultants et leur responsabilite dans cette mission.</CardDescription></CardHeader><CardContent>
       {consultants.isPending ? <p className="text-sm text-muted-foreground">Chargement des consultants...</p> : null}
       {consultants.data?.data.length === 0 ? <p className="text-sm text-muted-foreground">Créez au moins un consultant actif avant de planifier une mission.</p> : null}
-      <div className="grid gap-2 sm:grid-cols-2">{consultants.data?.data.map((consultant) => <label className="flex min-h-14 items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm" key={consultant.id}><input className="size-4 accent-brand-700" type="checkbox" value={consultant.id} {...form.register("consultantIds")} /><span><span className="block font-medium">{consultant.fullName}</span><span className="block text-xs text-muted-foreground">{consultant.email}</span></span></label>)}</div>
-      {form.formState.errors.consultantIds ? <FieldError className="mt-2">Sélectionnez au moins un consultant.</FieldError> : null}
+      <div className="grid gap-2 sm:grid-cols-2">{consultants.data?.data.map((consultant) => {
+        const assignment = consultantAssignments.find((item) => item.consultantId === consultant.id);
+        return <div className="flex min-h-14 flex-col gap-2 rounded-md border bg-white px-3 py-2 text-sm" key={consultant.id}>
+          <label className="flex items-center gap-3"><input className="size-4 accent-brand-700" type="checkbox" checked={Boolean(assignment)} onChange={(event) => toggleConsultantAssignment(form, consultant.id, event.target.checked)} /><span><span className="block font-medium">{consultant.fullName}</span><span className="block text-xs text-muted-foreground">{consultant.email}</span></span></label>
+          {assignment ? <select className="h-10 rounded-md border bg-white px-3 text-sm" value={assignment.role} onChange={(event) => updateConsultantRole(form, consultant.id, event.target.value as "RESPONSABLE" | "PARTICIPANT")}><option value="RESPONSABLE">Responsable</option><option value="PARTICIPANT">Participant</option></select> : null}
+        </div>;
+      })}</div>
+      {form.formState.errors.consultantAssignments ? <FieldError className="mt-2">Sélectionnez au moins un consultant responsable.</FieldError> : null}
     </CardContent></Card>
     {clients.isError || consultants.isError ? <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">Impossible de charger les options de planification.</p> : null}
     {mutation.isError ? <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{mutation.error instanceof ApiError ? mutation.error.message : "Impossible de créer la mission."}</p> : null}
     <div className="sticky bottom-16 z-20 flex justify-end gap-3 rounded-lg border bg-white/95 p-3 shadow-md backdrop-blur lg:bottom-0"><Button asChild variant="outline"><Link href="/calendar">Annuler</Link></Button><Button disabled={mutation.isPending || clients.isError || consultants.isError} type="submit">{mutation.isPending ? "Création..." : "Créer la mission"}</Button></div>
   </form>;
+}
+
+type MissionForm = ReturnType<typeof useForm<z.input<typeof missionCreateSchema>, unknown, MissionCreateInput>>;
+
+function toggleConsultantAssignment(form: MissionForm, consultantId: string, checked: boolean) {
+  const current = form.getValues("consultantAssignments") ?? [];
+  if (checked) {
+    form.setValue(
+      "consultantAssignments",
+      [
+        ...current,
+        {
+          consultantId,
+          role: current.some((assignment) => assignment.role === "RESPONSABLE") ? "PARTICIPANT" : "RESPONSABLE",
+        },
+      ],
+      { shouldDirty: true, shouldValidate: true },
+    );
+    return;
+  }
+  form.setValue(
+    "consultantAssignments",
+    current.filter((assignment) => assignment.consultantId !== consultantId),
+    { shouldDirty: true, shouldValidate: true },
+  );
+}
+
+function updateConsultantRole(form: MissionForm, consultantId: string, role: "RESPONSABLE" | "PARTICIPANT") {
+  form.setValue(
+    "consultantAssignments",
+    (form.getValues("consultantAssignments") ?? []).map((assignment) =>
+      assignment.consultantId === consultantId ? { ...assignment, role } : assignment,
+    ),
+    { shouldDirty: true, shouldValidate: true },
+  );
 }
 
 

@@ -1,4 +1,5 @@
 import { ClientEditForm } from "@/components/clients/client-edit-form";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
@@ -14,7 +15,9 @@ export default async function EditClientPage({ params }: Readonly<{ params: Prom
           title="Modifier le client"
           description="Verifiez les reperes utilises par les consultants avant d'enregistrer."
         />
-        <ClientEditForm clientId={id} />
+        <ProtectedRoute allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <ClientEditForm clientId={id} />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

@@ -22,6 +22,7 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { enqueueOfflineMutation, isQueuedOfflineResult, shouldQueueOffline } from "@/lib/offline/outbox";
 import type { QueuedOfflineResult } from "@/lib/offline/outbox";
+import { RoleGate } from "@/components/auth/role-gate";
 
 type Consultant = {
   id: string;
@@ -160,14 +161,16 @@ export function ConsultantDetail({ id }: Readonly<{ id: string }>) {
             </CardContent>
           </Card>
 
-          <div className="flex flex-col gap-2">
-            <Button asChild><Link href={`/consultants/${consultant.id}/modifier`}>Modifier le profil</Link></Button>
-            {consultant.status === "ARCHIVED" ? (
-              <RestoreConsultantDialog isPending={restore.isPending} onConfirm={() => restore.mutate()} />
-            ) : (
-              <ArchiveConsultantDialog isPending={archive.isPending} onConfirm={() => archive.mutate()} />
-            )}
-          </div>
+          <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+            <div className="flex flex-col gap-2">
+              <Button asChild><Link href={`/consultants/${consultant.id}/modifier`}>Modifier le profil</Link></Button>
+              {consultant.status === "ARCHIVED" ? (
+                <RestoreConsultantDialog isPending={restore.isPending} onConfirm={() => restore.mutate()} />
+              ) : (
+                <ArchiveConsultantDialog isPending={archive.isPending} onConfirm={() => archive.mutate()} />
+              )}
+            </div>
+          </RoleGate>
         </aside>
       </section>
     </div>

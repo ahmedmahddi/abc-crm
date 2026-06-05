@@ -2,6 +2,7 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
 import { UserCreateForm } from "@/components/users/user-form";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 
 export default function NewUserPage() {
   return (
@@ -13,7 +14,9 @@ export default function NewUserPage() {
           title="Creer un utilisateur"
           description="Ajoutez un compte de connexion et attribuez ses droits avant la premiere utilisation."
         />
-        <UserCreateForm />
+        <ProtectedRoute allowedRoles={["ADMIN"]}>
+          <UserCreateForm />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

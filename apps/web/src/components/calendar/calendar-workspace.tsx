@@ -35,6 +35,8 @@ import {
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RoleGate } from "@/components/auth/role-gate";
+import { useAuth } from "@/components/providers/auth-provider";
 import { FilterBar, FilterField, PageStack } from "@/components/layout/page-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
@@ -92,6 +94,7 @@ const MISSION_TYPE_DETAILS = {
 
 export function CalendarWorkspace() {
   const router = useRouter();
+  const { canManageOperations } = useAuth();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -180,6 +183,7 @@ export function CalendarWorkspace() {
   const mobileMissions = visibleMissions.filter((mission) => missionOccursOnDate(mission, selectedDate));
 
   const handleDrop = ({ event, revert }: EventDropArg) => {
+    if (!canManageOperations) return revert();
     const mission = event.extendedProps.mission as Mission;
     if (!event.start || !event.end) return revert();
     reschedule.mutate({ mission, start: event.start, end: event.end }, { onError: revert });
@@ -217,12 +221,14 @@ export function CalendarWorkspace() {
             Planifiez les interventions et affectez les consultants.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/missions/nouvelle">
-            <Plus data-icon="inline-start" />
-            Nouvelle mission
-          </Link>
-        </Button>
+        <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <Button asChild>
+            <Link href="/missions/nouvelle">
+              <Plus data-icon="inline-start" />
+              Nouvelle mission
+            </Link>
+          </Button>
+        </RoleGate>
       </header>
       <CalendarFilters
         clients={clients.data?.data ?? []}
@@ -251,7 +257,7 @@ export function CalendarWorkspace() {
               dayMaxEvents={3}
               eventMaxStack={4}
               datesSet={handleDatesSet}
-              editable
+              editable={canManageOperations}
               events={calendarEvents}
               eventClick={({ event }) => router.push(`/missions/${event.id}`)}
               eventContent={({ event, timeText, view }) => (

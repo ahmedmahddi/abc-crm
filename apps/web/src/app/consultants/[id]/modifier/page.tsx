@@ -1,4 +1,5 @@
 import { ConsultantEditLoader } from "@/components/consultants/consultant-edit-loader";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
@@ -14,7 +15,9 @@ export default async function EditConsultantPage({ params }: Readonly<{ params: 
           title="Modifier le consultant"
           description="Coordonnees metier et disponibilite pour les prochaines affectations."
         />
-        <ConsultantEditLoader id={id} />
+        <ProtectedRoute allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <ConsultantEditLoader id={id} />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
 import { MissionCreateForm } from "@/components/missions/mission-create-form";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 
 export default function NewMissionPage() {
   return (
@@ -13,7 +14,9 @@ export default function NewMissionPage() {
           title="Creer une mission"
           description="Preparez l'intervention terrain et affectez les consultants responsables."
         />
-        <MissionCreateForm />
+        <ProtectedRoute allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <MissionCreateForm />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

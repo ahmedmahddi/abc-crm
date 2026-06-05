@@ -11,6 +11,7 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { apiFetch, apiUpload, ApiError } from "@/lib/api";
 import { shouldQueueOffline } from "@/lib/offline/outbox";
 import { stageClientDocumentUpload } from "@/lib/offline/uploads";
+import { useAuth } from "@/components/providers/auth-provider";
 
 type ClientDocument = {
   id: string;
@@ -21,6 +22,7 @@ type ClientDocument = {
 export function ClientDocuments({ clientId, documents }: Readonly<{ clientId: string; documents: ClientDocument[] }>) {
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { canManageOperations } = useAuth();
   const [documentType, setDocumentType] = useState<ClientDocumentType>("OTHER");
   const [clientError, setClientError] = useState<string>();
   const [queuedMessage, setQueuedMessage] = useState<string>();
@@ -66,7 +68,7 @@ export function ClientDocuments({ clientId, documents }: Readonly<{ clientId: st
         <CardDescription>Justificatifs privés accessibles par lien temporaire.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-md border p-3">
+        {canManageOperations ? <div className="flex flex-col gap-3 rounded-md border p-3">
           <Field>
             <FieldLabel htmlFor="documentType">Type de document</FieldLabel>
             <select className="h-11 rounded-md border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" id="documentType" onChange={(event) => setDocumentType(event.target.value as ClientDocumentType)} value={documentType}>
@@ -82,14 +84,14 @@ export function ClientDocuments({ clientId, documents }: Readonly<{ clientId: st
           {upload.isError ? <p className="text-sm text-danger" role="alert">{upload.error instanceof ApiError ? upload.error.message : upload.error.message}</p> : null}
           {queuedMessage ? <p className="border-l-2 border-primary pl-3 text-sm" role="status">{queuedMessage}</p> : null}
           <Button disabled={upload.isPending} onClick={startUpload} type="button"><Upload data-icon="inline-start" />{upload.isPending ? "Transfert..." : "Importer le document"}</Button>
-        </div>
-        {documents.length === 0 ? <p className="text-sm text-muted-foreground">Aucun document importé.</p> : <ul className="flex flex-col gap-2">{documents.map((document) => <DocumentRow clientId={clientId} document={document} key={document.id} />)}</ul>}
+        </div> : null}
+        {documents.length === 0 ? <p className="text-sm text-muted-foreground">Aucun document importé.</p> : <ul className="flex flex-col gap-2">{documents.map((document) => <DocumentRow canManageOperations={canManageOperations} clientId={clientId} document={document} key={document.id} />)}</ul>}
       </CardContent>
     </Card>
   );
 }
 
-function DocumentRow({ clientId, document }: Readonly<{ clientId: string; document: ClientDocument }>) {
+function DocumentRow({ canManageOperations, clientId, document }: Readonly<{ canManageOperations: boolean; clientId: string; document: ClientDocument }>) {
   const queryClient = useQueryClient();
   const download = useMutation({
     mutationFn: () => apiFetch<{ data: { signedUrl: string } }>(`/files/${document.file.id}/signed-url`),
@@ -113,7 +115,7 @@ function DocumentRow({ clientId, document }: Readonly<{ clientId: string; docume
         </div>
         <div className="flex items-center">
           <Button aria-label={`Télécharger ${document.file.originalName}`} disabled={download.isPending} onClick={() => download.mutate()} size="sm" type="button" variant="ghost"><Download aria-hidden="true" /></Button>
-          <Dialog>
+          {canManageOperations ? <Dialog>
             <DialogTrigger asChild><Button aria-label={`Retirer ${document.file.originalName}`} size="sm" type="button" variant="ghost"><Trash2 aria-hidden="true" /></Button></DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -125,7 +127,7 @@ function DocumentRow({ clientId, document }: Readonly<{ clientId: string; docume
                 <DialogClose asChild><Button disabled={remove.isPending} onClick={() => remove.mutate()} variant="danger">{remove.isPending ? "Suppression..." : "Retirer le document"}</Button></DialogClose>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+          </Dialog> : null}
         </div>
       </div>
       {remove.isError ? <p className="text-xs text-danger" role="alert">{remove.error instanceof ApiError ? remove.error.message : "Impossible de retirer ce document."}</p> : null}

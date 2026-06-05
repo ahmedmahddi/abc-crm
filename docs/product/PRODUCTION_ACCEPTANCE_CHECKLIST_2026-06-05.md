@@ -12,13 +12,13 @@ Legend:
 
 | Area | Status | Notes |
 |---|---|---|
-| Navigation & routes | Partial | Main routes are present. Ordres/templates UI routes are disabled. Role-aware navigation is not complete. |
-| Auth flow | Partial | Custom auth, cookies, refresh rotation and reset tokens exist. Silent frontend refresh, login throttling and email reset delivery are missing. |
-| Roles & permissions | Partial | API guards enforce write/admin permissions. Frontend still shows write/admin buttons without user-role context. |
+| Navigation & routes | Pass | Main routes are present. Ordres/templates UI routes are disabled. Sidebar and mobile overflow are role-aware for admin-only items. |
+| Auth flow | Pass | Custom auth, cookies, refresh rotation, frontend `/auth/me`, silent refresh retry, login throttling and production reset email delivery hook exist. |
+| Roles & permissions | Pass | API guards enforce write/admin permissions and frontend guards hide write/admin controls by role. |
 | CRUD complet | Partial | Clients are strongest. Consultants/users/missions are functional but missing some advanced checks and UI affordances. |
-| Calendar & missions | Partial | Calendar-first architecture is implemented. Consultant role selection in mission forms is missing. |
-| PWA & hors-ligne | Partial | Dexie outbox/sync center exists. Serwist/service worker is not wired yet. |
-| Parite back/front | Partial | Ordres/templates backend exists but UI is intentionally disabled. Health endpoint is too shallow for production dependency status. |
+| Calendar & missions | Pass | Calendar-first architecture is implemented and mission forms now capture consultant RESPONSABLE/PARTICIPANT roles. |
+| PWA & hors-ligne | Partial | Dexie outbox/sync center exists. Serwist worker is wired; live install/offline reload still needs browser verification. |
+| Parite back/front | Partial | Ordres/templates backend exists but UI is intentionally disabled. Health now checks DB and Supabase Storage; live health still needs deployed env verification. |
 
 ## Navigation & Routes
 
@@ -30,14 +30,14 @@ Legend:
 | `/consultants/[id]` has "Modifier" -> edit route | Pass | `ConsultantDetail` links to `/consultants/${id}/modifier`. |
 | Calendar "Nouvelle mission" -> `/missions/nouvelle` | Pass | `CalendarWorkspace` header action. |
 | `/missions/[id]` has "Modifier" -> edit route | Pass | `MissionDetail` links to `/missions/${id}/modifier`. |
-| `/users` has "Nouvel utilisateur" for ADMIN only | Partial | Button exists in `UserList`, but frontend does not have user-role context to hide it for non-admins. API is ADMIN-only. |
+| `/users` has "Nouvel utilisateur" for ADMIN only | Pass | `/users` routes are frontend role-gated and API is ADMIN-only. |
 | `/login` has forgot-password link | Pass | `login/page.tsx` links to `/forgot-password`. |
 | `/missions` redirects to `/calendar` | Pass | `apps/web/src/app/missions/page.tsx`. |
 | Desktop sidebar exact items and no Missions tab | Pass | Sidebar has Accueil, Calendrier, Clients, Consultants, Utilisateurs, Synchronisation. |
 | Mobile bottom nav exact items | Pass | Mobile nav has Accueil, Calendrier, Clients, Plus. |
-| `/more` lists overflow items | Partial | Lists Consultants, Utilisateurs, Synchronisation. Utilisateurs is not role-aware. |
-| Session expired redirects to `/session-expired` without loop | Fail | Page exists, but API client/proxy do not redirect 401/session-expired states there. |
-| Logout redirects to `/logged-out` | Partial | Page exists. No complete global logout UI/flow evidence in app shell. |
+| `/more` lists overflow items | Pass | Lists Consultants and Synchronisation for all authenticated users; Utilisateurs appears for ADMIN only. |
+| Session expired redirects to `/session-expired` without loop | Pass | `apiFetch()` refreshes once, retries, then redirects to `/session-expired` on persistent 401. |
+| Logout redirects to `/logged-out` | Pass | App shell exposes logout and redirects to `/logged-out` after server session revocation. |
 | Detail pages expose parent return path | Pass | Client, consultant and mission detail pages have breadcrumbs to parent context. |
 
 ## Auth Flow
@@ -45,27 +45,27 @@ Legend:
 | Check | Status | Evidence / Gap |
 |---|---|---|
 | Valid login sets `access_token` and `refresh_token` HttpOnly cookies | Pass | `AuthController.setAuthCookies()` sets both with `httpOnly: true`. |
-| Disabled account shows explicit non-generic error | Fail | `AuthService.login()` returns "Identifiants invalides" for disabled users. |
-| Expired access token triggers silent refresh | Fail | `apiFetch()` does not call `/auth/refresh` on 401. |
+| Disabled account shows explicit non-generic error | Pass | `AuthService.login()` returns an explicit disabled-account error. |
+| Expired access token triggers silent refresh | Pass | `apiFetch()` calls `/auth/refresh`, retries once, then redirects to `/session-expired`. |
 | Refresh token rotation rejects old refresh | Pass | `AuthService.refresh()` overwrites stored token hash; replay old token no longer matches. |
 | Forgot password response avoids email enumeration | Pass | Unknown/disabled user still returns `{ ok: true }`. |
 | Expired reset token rejected with clear message | Pass | `confirmPasswordReset()` returns invalid/expired message. |
 | Used reset token rejected with clear message | Pass | `usedAt: null` required; same invalid/expired message. |
 | Logout revokes server session | Pass | `logout()` sets `revokedAt`; refresh/verify require `revokedAt: null`. |
 | CSRF cookie/header checked on mutations | Partial | API mutations use `CsrfGuard` in main controllers. Need systematic integration test coverage. |
-| Login throttling after repeated failures | Fail | Known gap; no throttle store/middleware exists. |
-| Password reset email delivery | Fail | Known gap; non-production dev token exists, no email provider. |
+| Login throttling after repeated failures | Pass | `AuthService.login()` applies in-memory email-based throttling with HTTP 429 after repeated failures. |
+| Password reset email delivery | Pass | Production reset requests send through Resend when `RESEND_API_KEY` and `PASSWORD_RESET_FROM_EMAIL` are configured; non-production keeps dev token behavior. |
 
 ## Roles & Permissions
 
 | Check | Status | Evidence / Gap |
 |---|---|---|
-| VIEWER sees no create/edit/archive buttons | Fail | Frontend does not load `/auth/me` user role and does not hide buttons by role. |
-| CONSULTANT blocked from create routes/API | Partial | API blocks writes via `RolesGuard`; frontend routes still render forms if visited directly. |
+| VIEWER sees no create/edit/archive buttons | Pass | Auth provider loads `/auth/me`; list/detail/create controls are hidden by frontend role gates. |
+| CONSULTANT blocked from create routes/API | Pass | API blocks writes via `RolesGuard`; frontend create/edit routes render forbidden state for unauthorized roles. |
 | CONSULTANT write requests return 403 | Pass | Write controllers require `ADMIN` or `RESPONSABLE`. |
 | RESPONSABLE can write clients/consultants/missions | Pass | Controllers allow `ADMIN`, `RESPONSABLE`. |
-| `/users` and `/users/nouveau` ADMIN-only | Partial | API is ADMIN-only. Frontend route shell is not role-gated. |
-| Archive/restore buttons hidden for CONSULTANT/VIEWER | Fail | Buttons are not role-aware. API blocks writes. |
+| `/users` and `/users/nouveau` ADMIN-only | Pass | API is ADMIN-only and frontend `/users`, `/users/nouveau`, `/users/:id/modifier` are role-gated. |
+| Archive/restore buttons hidden for CONSULTANT/VIEWER | Pass | Client, consultant, mission and document write controls are role-aware. |
 | Client CSV export role decision documented | Partial | Endpoint requires authentication only; no role restriction documented in code. |
 | Disabling user rejects active sessions | Pass | `verifyAccessToken()` and `refresh()` reject disabled users. Existing cookies fail on next guarded request. |
 
@@ -88,9 +88,9 @@ Legend:
 | Consultant create/edit/archive/restore | Pass | API/UI paths exist. |
 | Consultant edit links user account | Fail | Detail displays linked account, but edit form currently does not expose `userId`. |
 | Mission create visible in calendar | Pass | Create form posts mission; calendar queries mission range. |
-| Mission edit saves type/mode/dates/location/consultants | Partial | Fields exist; consultant role selection is missing. |
+| Mission edit saves type/mode/dates/location/consultants | Pass | Fields exist and consultant assignments include explicit RESPONSABLE/PARTICIPANT role values. |
 | Mission optimistic locking conflict | Pass | Service version checks raise conflict. |
-| Mission consultant role choice in form | Fail | Forms use `consultantIds` checkboxes only, no RESPONSABLE/PARTICIPANT choice. |
+| Mission consultant role choice in form | Pass | Create/edit forms use `consultantAssignments` with per-consultant role selection. |
 | Mission archive removed from active calendar | Pass | Calendar service excludes cancelled/archived status in active query path. |
 | User create with role | Pass | User form has role select. |
 | User disable/enable | Pass | User list actions and API exist. |
@@ -115,10 +115,10 @@ Legend:
 
 | Check | Status | Evidence / Gap |
 |---|---|---|
-| Manifest valid with 192/512 icons | Partial | Manifest exists but only lists a 512 icon. |
-| Service worker active | Fail | `@serwist/next` dependency exists, but no Serwist/worker wiring found. |
-| App shell reloads offline | Fail | No service worker means no reliable offline app shell reload. |
-| Install prompt/app installable | Partial | Manifest exists; missing 192 icon and service worker weakens installability. |
+| Manifest valid with 192/512 icons | Pass | Manifest lists 192 and 512 icon entries. |
+| Service worker active | Manual | Serwist is wired through Next config and generates `/sw.js`; active registration needs browser verification. |
+| App shell reloads offline | Manual | Serwist precache/runtime caching is configured; offline reload needs browser verification. |
+| Install prompt/app installable | Manual | Manifest and service worker are present; installability needs browser verification. |
 | Offline mutations queued in Dexie | Partial | Clients/consultants/missions queue some actions. User disable is online-only in sync service. |
 | Sync center pending count | Pass | Sync center reads Dexie outbox/uploads/conflicts. |
 | Reconnect triggers batch sync | Partial | Manual sync button exists; automatic reconnect retry is not clearly implemented globally. |
@@ -136,19 +136,18 @@ Legend:
 | API ordres responds correctly | Manual | Backend exists; needs dev/Postman verification. |
 | API templates responds correctly | Manual | Backend exists; needs dev/Postman verification. |
 | Ordre exports valid files | Manual | Export code exists; needs file validation in dev. |
-| `/health` returns service status | Partial | Returns `{ status: "ok", service: "abc-crm-api" }`; does not check DB/Redis/Storage. |
+| `/health` returns service status | Pass | Health service checks database and Supabase Storage and returns degraded status when a dependency fails. |
 | Audit log writes recorded | Partial | Many write services create `ActivityLog`; coverage is not universal and needs SQL verification. |
 
 ## Highest Priority Fixes Before Real Production
 
-1. Add frontend auth/session provider using `/auth/me`.
-2. Hide create/edit/archive/admin controls by role.
-3. Add client-side 401 handling: refresh once, retry request, then redirect `/session-expired`.
-4. Add login throttling server-side.
-5. Add real password reset email delivery or disable public reset in production until ready.
-6. Wire Serwist service worker and add 192/512 manifest icons.
-7. Add role-gated frontend route guards for `/users`, create/edit pages.
-8. Add consultant role selection in mission create/edit forms.
-9. Expand `/health` to check DB and Supabase Storage.
-10. Run manual browser/API/Supabase acceptance tests for all **Manual** rows.
-
+1. Done - frontend auth/session provider uses `/auth/me`.
+2. Done - create/edit/archive/admin controls are role-aware.
+3. Done - client 401 handling refreshes once, retries, then redirects `/session-expired`.
+4. Done - login throttling exists server-side.
+5. Done - production password reset email delivery uses Resend configuration.
+6. Done - Serwist worker is wired and manifest lists 192/512 icon entries.
+7. Done - frontend route guards protect `/users`, create/edit pages.
+8. Done - mission create/edit forms include consultant role selection.
+9. Done - `/health` checks DB and Supabase Storage.
+10. Remaining - run manual browser/API/Supabase acceptance tests for all **Manual** rows.

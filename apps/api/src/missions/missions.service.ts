@@ -82,10 +82,12 @@ export class MissionsService {
     try {
       const mission = await this.prisma.$transaction(async (transaction) => {
         await assertClientExists(transaction, input.clientId);
-        await assertConsultantsExist(transaction, input.consultantIds);
+        const consultantAssignments = getConsultantAssignments(input);
+        if (!consultantAssignments) throw new BadRequestException("Selectionnez au moins un consultant");
+        await assertConsultantsExist(transaction, consultantAssignments.map(({ consultantId }) => consultantId));
 
         const created = await transaction.mission.create({
-          data: toMissionCreateData(input, userId),
+          data: toMissionCreateData(input, userId, consultantAssignments),
           include: missionInclude,
         });
 
@@ -117,23 +119,25 @@ export class MissionsService {
           throw new ConflictException("La mission a ete modifiee depuis votre derniere consultation");
         }
         if (input.clientId) await assertClientExists(transaction, input.clientId);
-        if (input.consultantIds) await assertConsultantsExist(transaction, input.consultantIds);
+        const consultantAssignments = getConsultantAssignments(input);
+        if (consultantAssignments) {
+          await assertConsultantsExist(transaction, consultantAssignments.map(({ consultantId }) => consultantId));
+        }
 
-        const { consultantIds, version, ...fields } = input;
+        const { consultantAssignments: _consultantAssignments, consultantIds: _consultantIds, version, ...fields } = input;
+        void _consultantAssignments;
+        void _consultantIds;
         void version;
         const updated = await transaction.mission.update({
           where: { id },
           data: {
             ...toMissionUpdateData(fields),
             version: { increment: 1 },
-            ...(consultantIds
+            ...(consultantAssignments
               ? {
                   consultants: {
                     deleteMany: {},
-                    create: consultantIds.map((consultantId, index) => ({
-                      consultantId,
-                      role: index === 0 ? "RESPONSABLE" : "PARTICIPANT",
-                    })),
+                    create: consultantAssignments,
                   },
                 }
               : {}),
@@ -178,9 +182,14 @@ const missionInclude = {
 } satisfies Prisma.MissionInclude;
 
 type MissionWithRelations = Prisma.MissionGetPayload<{ include: typeof missionInclude }>;
-type MissionUpdateFields = Omit<MissionUpdateInput, "consultantIds" | "version">;
+type MissionUpdateFields = Omit<MissionUpdateInput, "consultantAssignments" | "consultantIds" | "version">;
+type MissionConsultantAssignment = { consultantId: string; role: "RESPONSABLE" | "PARTICIPANT" };
 
-function toMissionCreateData(input: MissionCreateInput, userId: string): Prisma.MissionCreateInput {
+function toMissionCreateData(
+  input: MissionCreateInput,
+  userId: string,
+  consultantAssignments: MissionConsultantAssignment[],
+): Prisma.MissionCreateInput {
   return {
     title: input.title,
     missionType: input.missionType,
@@ -193,12 +202,33 @@ function toMissionCreateData(input: MissionCreateInput, userId: string): Prisma.
     client: { connect: { id: input.clientId } },
     createdBy: { connect: { id: userId } },
     consultants: {
-      create: input.consultantIds.map((consultantId, index) => ({
+      create: consultantAssignments,
+    },
+  };
+}
+
+function getConsultantAssignments(
+  input: Pick<MissionCreateInput, "consultantAssignments" | "consultantIds"> | Pick<MissionUpdateInput, "consultantAssignments" | "consultantIds">,
+): MissionConsultantAssignment[] | undefined {
+  if (input.consultantAssignments?.length) return dedupeAssignments(input.consultantAssignments);
+  if (input.consultantIds?.length) {
+    return dedupeAssignments(
+      input.consultantIds.map((consultantId, index) => ({
         consultantId,
         role: index === 0 ? "RESPONSABLE" : "PARTICIPANT",
       })),
-    },
-  };
+    );
+  }
+  return undefined;
+}
+
+function dedupeAssignments(assignments: MissionConsultantAssignment[]) {
+  const seen = new Set<string>();
+  return assignments.filter((assignment) => {
+    if (seen.has(assignment.consultantId)) return false;
+    seen.add(assignment.consultantId);
+    return true;
+  });
 }
 
 function toMissionUpdateData(fields: MissionUpdateFields): Prisma.MissionUpdateInput {

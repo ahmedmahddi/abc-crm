@@ -12,6 +12,12 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       {
         src: "/brand/abc-logo.webp",
+        sizes: "192x192",
+        type: "image/webp",
+        purpose: "any",
+      },
+      {
+        src: "/brand/abc-logo.webp",
         sizes: "512x512",
         type: "image/webp",
         purpose: "maskable",

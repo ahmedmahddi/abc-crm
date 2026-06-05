@@ -1,4 +1,5 @@
 import { ConsultantCreateForm } from "@/components/consultants/consultant-create-form";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
@@ -13,7 +14,9 @@ export default function NewConsultantPage() {
           title="Creer un consultant"
           description="Le profil metier peut exister sans compte de connexion. L'acces applicatif sera gere separement."
         />
-        <ConsultantCreateForm />
+        <ProtectedRoute allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <ConsultantCreateForm />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

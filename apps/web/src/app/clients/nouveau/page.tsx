@@ -1,4 +1,5 @@
 import { ClientCreateForm } from "@/components/clients/client-create-form";
+import { ProtectedRoute } from "@/components/auth/role-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { PageHeader, PageStack } from "@/components/layout/page-section";
@@ -13,7 +14,9 @@ export default function NewClientPage() {
           title="Creer un client"
           description="Constituez le dossier initial : identite, responsables, contacts cadres et justificatifs. Vous pourrez le completer depuis la fiche client."
         />
-        <ClientCreateForm />
+        <ProtectedRoute allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <ClientCreateForm />
+        </ProtectedRoute>
       </PageStack>
     </AppShell>
   );

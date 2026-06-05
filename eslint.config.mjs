@@ -9,6 +9,7 @@ export default tseslint.config(
       "**/.next/**",
       "**/*.tsbuildinfo",
       "**/node_modules/**",
+      "**/public/sw.js",
       "**/*.config.mjs",
       "**/next.config.mjs",
     ],

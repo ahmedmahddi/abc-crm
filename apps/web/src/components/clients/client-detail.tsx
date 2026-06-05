@@ -16,6 +16,7 @@ import { apiFetch } from "@/lib/api";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { enqueueOfflineMutation, isQueuedOfflineResult, shouldQueueOffline } from "@/lib/offline/outbox";
 import type { QueuedOfflineResult } from "@/lib/offline/outbox";
+import { RoleGate } from "@/components/auth/role-gate";
 
 type ClientDetailResponse = {
   data: {
@@ -112,10 +113,12 @@ export function ClientDetail({ clientId }: Readonly<{ clientId: string }>) {
           <h1 className="text-xl font-semibold tracking-tight">{client.companyName}</h1>
           <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><span className="size-3 rounded-full border" style={{ backgroundColor: client.color }} aria-hidden="true" />{client.fiscalNumber} · {client.activitySector}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline"><Link href={`/clients/${client.id}/modifier`}>Modifier la fiche</Link></Button>
-          {client.status === "ARCHIVED" ? <RestoreClientDialog isPending={restoreMutation.isPending} onConfirm={() => restoreMutation.mutate()} /> : <ArchiveClientDialog isPending={archiveMutation.isPending} onConfirm={() => archiveMutation.mutate()} />}
-        </div>
+        <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline"><Link href={`/clients/${client.id}/modifier`}>Modifier la fiche</Link></Button>
+            {client.status === "ARCHIVED" ? <RestoreClientDialog isPending={restoreMutation.isPending} onConfirm={() => restoreMutation.mutate()} /> : <ArchiveClientDialog isPending={archiveMutation.isPending} onConfirm={() => archiveMutation.mutate()} />}
+          </div>
+        </RoleGate>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-3">

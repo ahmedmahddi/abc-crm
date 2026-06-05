@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FilterBar, FilterField, PagePanel, RecordList, SectionHeader } from "@/components/layout/page-section";
+import { RoleGate } from "@/components/auth/role-gate";
+import { useAuth } from "@/components/providers/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { API_URL, apiFetch, ApiError } from "@/lib/api";
 
@@ -43,6 +45,7 @@ const sortableColumns: Array<{ label: string; value: SortBy }> = [
 
 export function ClientList() {
   const queryClient = useQueryClient();
+  const { canManageOperations } = useAuth();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("ACTIVE");
   const [page, setPage] = useState(1);
@@ -220,7 +223,7 @@ export function ClientList() {
           {actionError instanceof ApiError ? actionError.message : "Impossible d'appliquer l'action demandee."}
         </p>
       ) : null}
-      {selectedClients.length > 0 ? (
+      {canManageOperations && selectedClients.length > 0 ? (
         <BulkActionBar
           count={selectedClients.length}
           disabled={isMutating || !isOnline}
@@ -240,6 +243,7 @@ export function ClientList() {
                 client={client}
                 disabled={isMutating || !isOnline}
                 isSelected={selectedIds.has(client.id)}
+                canManageOperations={canManageOperations}
                 key={client.id}
                 onArchive={() => archiveMutation.mutate(client.id)}
                 onRestore={() => restoreMutation.mutate(client.id)}
@@ -249,6 +253,7 @@ export function ClientList() {
           </RecordList>
           <ClientDesktopTable
             allVisibleSelected={allVisibleSelected}
+            canManageOperations={canManageOperations}
             clients={clients}
             disabled={isMutating || !isOnline}
             selectedIds={selectedIds}
@@ -278,6 +283,7 @@ export function ClientList() {
 }
 
 function ClientMobileRow({
+  canManageOperations,
   client,
   disabled,
   isSelected,
@@ -285,6 +291,7 @@ function ClientMobileRow({
   onRestore,
   onToggle,
 }: Readonly<{
+  canManageOperations: boolean;
   client: ClientSummary;
   disabled: boolean;
   isSelected: boolean;
@@ -295,13 +302,15 @@ function ClientMobileRow({
   return (
     <article className="flex flex-col gap-3 rounded-md border bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <input
-          aria-label={`Selectionner ${client.companyName}`}
-          checked={isSelected}
-          className="mt-1 size-5 accent-brand-700"
-          onChange={onToggle}
-          type="checkbox"
-        />
+        {canManageOperations ? (
+          <input
+            aria-label={`Selectionner ${client.companyName}`}
+            checked={isSelected}
+            className="mt-1 size-5 accent-brand-700"
+            onChange={onToggle}
+            type="checkbox"
+          />
+        ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -317,22 +326,26 @@ function ClientMobileRow({
           </dl>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className={canManageOperations ? "grid grid-cols-3 gap-2" : "grid grid-cols-1 gap-2"}>
         <Button asChild size="sm" variant="outline">
           <Link href={`/clients/${client.id}`}><Eye aria-hidden="true" />Ouvrir</Link>
         </Button>
-        <Button asChild size="sm" variant="outline">
-          <Link href={`/clients/${client.id}/modifier`}><Edit aria-hidden="true" />Modifier</Link>
-        </Button>
-        {client.status === "ARCHIVED" ? (
-          <Button disabled={disabled} onClick={onRestore} size="sm" type="button">
-            <RotateCcw aria-hidden="true" />Restaurer
-          </Button>
-        ) : (
-          <Button disabled={disabled} onClick={onArchive} size="sm" type="button" variant="danger">
-            <Archive aria-hidden="true" />Archiver
-          </Button>
-        )}
+        {canManageOperations ? (
+          <>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/clients/${client.id}/modifier`}><Edit aria-hidden="true" />Modifier</Link>
+            </Button>
+            {client.status === "ARCHIVED" ? (
+              <Button disabled={disabled} onClick={onRestore} size="sm" type="button">
+                <RotateCcw aria-hidden="true" />Restaurer
+              </Button>
+            ) : (
+              <Button disabled={disabled} onClick={onArchive} size="sm" type="button" variant="danger">
+                <Archive aria-hidden="true" />Archiver
+              </Button>
+            )}
+          </>
+        ) : null}
       </div>
     </article>
   );
@@ -340,6 +353,7 @@ function ClientMobileRow({
 
 function ClientDesktopTable({
   allVisibleSelected,
+  canManageOperations,
   clients,
   disabled,
   selectedIds,
@@ -352,6 +366,7 @@ function ClientDesktopTable({
   onToggleClient,
 }: Readonly<{
   allVisibleSelected: boolean;
+  canManageOperations: boolean;
   clients: ClientSummary[];
   disabled: boolean;
   selectedIds: Set<string>;
@@ -368,15 +383,17 @@ function ClientDesktopTable({
       <table className="w-full text-left text-sm">
         <thead className="border-b bg-muted/60 text-xs text-muted-foreground">
           <tr>
-            <th className="w-10 px-4 py-3" scope="col">
-              <input
-                aria-label="Selectionner les clients visibles"
-                checked={allVisibleSelected}
-                className="size-4 accent-brand-700"
-                onChange={onToggleAll}
-                type="checkbox"
-              />
-            </th>
+            {canManageOperations ? (
+              <th className="w-10 px-4 py-3" scope="col">
+                <input
+                  aria-label="Selectionner les clients visibles"
+                  checked={allVisibleSelected}
+                  className="size-4 accent-brand-700"
+                  onChange={onToggleAll}
+                  type="checkbox"
+                />
+              </th>
+            ) : null}
             <SortableHeader activeSort={sortBy} label="Entreprise" sortDir={sortDir} value="companyName" onSort={onSort} />
             <SortableHeader activeSort={sortBy} label="Matricule fiscal" sortDir={sortDir} value="fiscalNumber" onSort={onSort} />
             <SortableHeader activeSort={sortBy} label="Secteur" sortDir={sortDir} value="activitySector" onSort={onSort} />
@@ -389,15 +406,17 @@ function ClientDesktopTable({
         <tbody className="divide-y">
           {clients.map((client) => (
             <tr className="bg-white transition-colors hover:bg-brand-50/50" key={client.id}>
-              <td className="px-4 py-3">
-                <input
-                  aria-label={`Selectionner ${client.companyName}`}
-                  checked={selectedIds.has(client.id)}
-                  className="size-4 accent-brand-700"
-                  onChange={() => onToggleClient(client.id)}
-                  type="checkbox"
-                />
-              </td>
+              {canManageOperations ? (
+                <td className="px-4 py-3">
+                  <input
+                    aria-label={`Selectionner ${client.companyName}`}
+                    checked={selectedIds.has(client.id)}
+                    className="size-4 accent-brand-700"
+                    onChange={() => onToggleClient(client.id)}
+                    type="checkbox"
+                  />
+                </td>
+              ) : null}
               <td className="px-4 py-3 font-medium">
                 <Link className="hover:text-brand-700 hover:underline" href={`/clients/${client.id}`}>{client.companyName}</Link>
               </td>
@@ -409,12 +428,16 @@ function ClientDesktopTable({
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
                   <Button asChild size="sm" variant="outline"><Link href={`/clients/${client.id}`}>Ouvrir</Link></Button>
-                  <Button asChild size="sm" variant="outline"><Link href={`/clients/${client.id}/modifier`}>Modifier</Link></Button>
-                  {client.status === "ARCHIVED" ? (
-                    <Button disabled={disabled} onClick={() => onRestore(client.id)} size="sm" type="button">Restaurer</Button>
-                  ) : (
-                    <Button disabled={disabled} onClick={() => onArchive(client.id)} size="sm" type="button" variant="danger">Archiver</Button>
-                  )}
+                  {canManageOperations ? (
+                    <>
+                      <Button asChild size="sm" variant="outline"><Link href={`/clients/${client.id}/modifier`}>Modifier</Link></Button>
+                      {client.status === "ARCHIVED" ? (
+                        <Button disabled={disabled} onClick={() => onRestore(client.id)} size="sm" type="button">Restaurer</Button>
+                      ) : (
+                        <Button disabled={disabled} onClick={() => onArchive(client.id)} size="sm" type="button" variant="danger">Archiver</Button>
+                      )}
+                    </>
+                  ) : null}
                 </div>
               </td>
             </tr>
@@ -522,7 +545,9 @@ function ClientListEmpty() {
       <Building2 className="size-5 text-muted-foreground" aria-hidden="true" />
       <p className="text-sm font-medium">Aucun client a afficher</p>
       <p className="max-w-sm text-xs leading-5 text-muted-foreground">Modifiez la recherche ou l'etat du dossier. Les nouveaux clients apparaitront ici apres leur creation.</p>
-      <Button asChild size="sm"><Link href="/clients/nouveau">Ajouter un client</Link></Button>
+      <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+        <Button asChild size="sm"><Link href="/clients/nouveau">Ajouter un client</Link></Button>
+      </RoleGate>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, House, RefreshCw, UserCog, UserRoundCog, Users } from "lucide-react";
+import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/cn";
 
 const planningItems = [
@@ -18,6 +19,9 @@ const administrationItems = [
 ];
 
 export function Sidebar() {
+  const { canManageUsers } = useAuth();
+  const visibleAdministrationItems = administrationItems.filter((item) => item.href !== "/users" || canManageUsers);
+
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-60 border-r bg-white shadow-sm lg:flex lg:flex-col">
       <div className="flex h-16 items-center border-b px-4">
@@ -28,7 +32,7 @@ export function Sidebar() {
       </div>
       <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4" aria-label="Navigation principale">
         <NavigationGroup items={planningItems} />
-        <NavigationGroup items={administrationItems} label="Gestion" />
+        <NavigationGroup items={visibleAdministrationItems} label="Gestion" />
       </nav>
     </aside>
   );

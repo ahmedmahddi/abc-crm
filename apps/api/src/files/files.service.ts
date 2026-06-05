@@ -109,6 +109,14 @@ export class FilesService {
     if (error) throw new BadGatewayException("Le lien de téléchargement n'a pas pu être généré");
     return { data: { expiresInSeconds: 60, signedUrl: data.signedUrl } };
   }
+
+  async checkStorageHealth() {
+    const { error } = await this.supabase.storage.from(this.bucket).list("", { limit: 1 });
+    if (error) {
+      return { bucket: this.bucket, status: "error" as const, message: error.message };
+    }
+    return { bucket: this.bucket, status: "ok" as const };
+  }
 }
 
 function validateFile(file: Express.Multer.File | undefined, type: ClientDocumentType) {

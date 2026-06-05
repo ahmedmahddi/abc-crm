@@ -3,9 +3,15 @@ import { z } from "zod";
 const missionChronologyRule = (value: { startDateTime?: Date | undefined; endDateTime?: Date | undefined }) =>
   !value.startDateTime || !value.endDateTime || value.endDateTime > value.startDateTime;
 
+export const missionConsultantAssignmentSchema = z.object({
+  consultantId: z.string().uuid(),
+  role: z.enum(["RESPONSABLE", "PARTICIPANT"]),
+});
+
 const missionBaseObjectSchema = z.object({
   clientId: z.string().uuid(),
-  consultantIds: z.array(z.string().uuid()).min(1),
+  consultantIds: z.array(z.string().uuid()).optional(),
+  consultantAssignments: z.array(missionConsultantAssignmentSchema).optional(),
   title: z.string().min(2),
   missionType: z.enum(["AUDIT", "FORMATION", "ASSISTANCE"]),
   missionMode: z.enum(["ONLINE", "PRESENTIELLE"]),
@@ -16,17 +22,27 @@ const missionBaseObjectSchema = z.object({
   status: z.enum(["PLANNED", "DONE", "CANCELLED"]).default("PLANNED"),
 });
 
-export const missionCreateSchema = missionBaseObjectSchema.refine(missionChronologyRule, {
-  message: "La date de fin doit être postérieure à la date de début",
-  path: ["endDateTime"],
-});
+export const missionCreateSchema = missionBaseObjectSchema
+  .superRefine(validateMissionAssignments)
+  .refine(missionChronologyRule, {
+    message: "La date de fin doit etre posterieure a la date de debut",
+    path: ["endDateTime"],
+  });
 
-export const missionUpdateSchema = missionBaseObjectSchema.partial().extend({
-  version: z.coerce.number().int().positive(),
-}).refine(missionChronologyRule, {
-  message: "La date de fin doit être postérieure à la date de début",
-  path: ["endDateTime"],
-});
+export const missionUpdateSchema = missionBaseObjectSchema
+  .partial()
+  .extend({
+    version: z.coerce.number().int().positive(),
+  })
+  .superRefine((value, context) => {
+    if (value.consultantAssignments !== undefined || value.consultantIds !== undefined) {
+      validateMissionAssignments(value, context);
+    }
+  })
+  .refine(missionChronologyRule, {
+    message: "La date de fin doit etre posterieure a la date de debut",
+    path: ["endDateTime"],
+  });
 
 export const missionListQuerySchema = z.object({
   q: z.string().trim().optional(),
@@ -47,3 +63,38 @@ export const missionCalendarQuerySchema = z.object({
 export type MissionCreateInput = z.infer<typeof missionCreateSchema>;
 export type MissionUpdateInput = z.infer<typeof missionUpdateSchema>;
 export type MissionListQuery = z.infer<typeof missionListQuerySchema>;
+
+function validateMissionAssignments(
+  value: {
+    consultantAssignments?: Array<z.infer<typeof missionConsultantAssignmentSchema>> | undefined;
+    consultantIds?: string[] | undefined;
+  },
+  context: z.RefinementCtx,
+) {
+  const assignments = normalizeConsultantAssignments(value);
+  if (assignments.length === 0) {
+    context.addIssue({
+      code: "custom",
+      message: "Selectionnez au moins un consultant",
+      path: ["consultantAssignments"],
+    });
+  }
+  if (assignments.length > 0 && !assignments.some((assignment) => assignment.role === "RESPONSABLE")) {
+    context.addIssue({
+      code: "custom",
+      message: "Selectionnez au moins un responsable de mission",
+      path: ["consultantAssignments"],
+    });
+  }
+}
+
+function normalizeConsultantAssignments(value: {
+  consultantAssignments?: Array<z.infer<typeof missionConsultantAssignmentSchema>> | undefined;
+  consultantIds?: string[] | undefined;
+}) {
+  if (value.consultantAssignments?.length) return value.consultantAssignments;
+  return (value.consultantIds ?? []).map((consultantId, index) => ({
+    consultantId,
+    role: index === 0 ? ("RESPONSABLE" as const) : ("PARTICIPANT" as const),
+  }));
+}

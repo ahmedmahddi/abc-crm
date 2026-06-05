@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
 import { enqueueOfflineMutation, isQueuedOfflineResult, shouldQueueOffline } from "@/lib/offline/outbox";
 import type { QueuedOfflineResult } from "@/lib/offline/outbox";
+import { RoleGate } from "@/components/auth/role-gate";
 
 type MissionDetailResponse = {
   data: {
@@ -101,17 +102,19 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
             {mission.client.companyName} - {mission.missionType}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/missions/${mission.id}/modifier`}>Modifier</Link>
-          </Button>
-          {mission.status !== "CANCELLED" ? (
-            <CancelMissionDialog
-              isPending={cancelMutation.isPending}
-              onConfirm={() => cancelMutation.mutate()}
-            />
-          ) : null}
-        </div>
+        <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/missions/${mission.id}/modifier`}>Modifier</Link>
+            </Button>
+            {mission.status !== "CANCELLED" ? (
+              <CancelMissionDialog
+                isPending={cancelMutation.isPending}
+                onConfirm={() => cancelMutation.mutate()}
+              />
+            ) : null}
+          </div>
+        </RoleGate>
       </header>
       {queuedMessage ? <p className="border-l-2 border-primary bg-white px-4 py-3 text-sm" role="status">{queuedMessage}</p> : null}
       {cancelMutation.isError ? (

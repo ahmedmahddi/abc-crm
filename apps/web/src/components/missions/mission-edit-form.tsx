@@ -24,7 +24,7 @@ type MissionResponse = {
   data: {
     id: string;
     client: { id: string };
-    consultants: Array<{ id: string }>;
+    consultants: Array<{ id: string; role: "RESPONSABLE" | "PARTICIPANT" }>;
     title: string;
     missionType: "AUDIT" | "FORMATION" | "ASSISTANCE";
     missionMode: "ONLINE" | "PRESENTIELLE";
@@ -69,7 +69,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
   const form = useForm<z.input<typeof missionUpdateSchema>, unknown, MissionUpdateInput>({
     defaultValues: {
       clientId: mission.client.id,
-      consultantIds: mission.consultants.map(({ id }) => id),
+      consultantAssignments: mission.consultants.map(({ id, role }) => ({ consultantId: id, role })),
       description: mission.description ?? "",
       endDateTime: toDateTimeLocalValue(mission.endDateTime),
       location: mission.location ?? "",
@@ -82,6 +82,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
     },
     resolver: zodResolver(missionUpdateSchema),
   });
+  const consultantAssignments = form.watch("consultantAssignments") ?? [];
   const mutation = useMutation({
     mutationFn: (input: MissionUpdateInput): Promise<Record<string, unknown> | QueuedOfflineResult> => {
       if (shouldQueueOffline()) {
@@ -200,22 +201,33 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
       <Card>
         <CardHeader>
           <CardTitle>Equipe affectee</CardTitle>
-          <CardDescription>Le premier consultant selectionne devient responsable.</CardDescription>
+          <CardDescription>Choisissez les consultants et leur responsabilite dans cette mission.</CardDescription>
         </CardHeader>
         <CardContent>
           {consultants.isPending ? <p className="text-sm text-muted-foreground">Chargement des consultants...</p> : null}
           <div className="grid gap-2 sm:grid-cols-2">
-            {consultants.data?.data.map((consultant) => (
-              <label className="flex min-h-14 items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm" key={consultant.id}>
-                <input className="size-4 accent-brand-700" type="checkbox" value={consultant.id} {...form.register("consultantIds")} />
-                <span>
-                  <span className="block font-medium">{consultant.fullName}</span>
-                  <span className="block text-xs text-muted-foreground">{consultant.email}</span>
-                </span>
-              </label>
-            ))}
+            {consultants.data?.data.map((consultant) => {
+              const assignment = consultantAssignments.find((item) => item.consultantId === consultant.id);
+              return (
+                <div className="flex min-h-14 flex-col gap-2 rounded-md border bg-white px-3 py-2 text-sm" key={consultant.id}>
+                  <label className="flex items-center gap-3">
+                    <input className="size-4 accent-brand-700" type="checkbox" checked={Boolean(assignment)} onChange={(event) => toggleConsultantAssignment(form, consultant.id, event.target.checked)} />
+                    <span>
+                      <span className="block font-medium">{consultant.fullName}</span>
+                      <span className="block text-xs text-muted-foreground">{consultant.email}</span>
+                    </span>
+                  </label>
+                  {assignment ? (
+                    <select className="h-10 rounded-md border bg-white px-3 text-sm" value={assignment.role} onChange={(event) => updateConsultantRole(form, consultant.id, event.target.value as "RESPONSABLE" | "PARTICIPANT")}>
+                      <option value="RESPONSABLE">Responsable</option>
+                      <option value="PARTICIPANT">Participant</option>
+                    </select>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
-          {form.formState.errors.consultantIds ? <FieldError className="mt-2">Selectionnez au moins un consultant.</FieldError> : null}
+          {form.formState.errors.consultantAssignments ? <FieldError className="mt-2">Selectionnez au moins un consultant responsable.</FieldError> : null}
         </CardContent>
       </Card>
 
@@ -238,6 +250,41 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
         </Button>
       </div>
     </form>
+  );
+}
+
+type MissionEditFormApi = ReturnType<typeof useForm<z.input<typeof missionUpdateSchema>, unknown, MissionUpdateInput>>;
+
+function toggleConsultantAssignment(form: MissionEditFormApi, consultantId: string, checked: boolean) {
+  const current = form.getValues("consultantAssignments") ?? [];
+  if (checked) {
+    form.setValue(
+      "consultantAssignments",
+      [
+        ...current,
+        {
+          consultantId,
+          role: current.some((assignment) => assignment.role === "RESPONSABLE") ? "PARTICIPANT" : "RESPONSABLE",
+        },
+      ],
+      { shouldDirty: true, shouldValidate: true },
+    );
+    return;
+  }
+  form.setValue(
+    "consultantAssignments",
+    current.filter((assignment) => assignment.consultantId !== consultantId),
+    { shouldDirty: true, shouldValidate: true },
+  );
+}
+
+function updateConsultantRole(form: MissionEditFormApi, consultantId: string, role: "RESPONSABLE" | "PARTICIPANT") {
+  form.setValue(
+    "consultantAssignments",
+    (form.getValues("consultantAssignments") ?? []).map((assignment) =>
+      assignment.consultantId === consultantId ? { ...assignment, role } : assignment,
+    ),
+    { shouldDirty: true, shouldValidate: true },
   );
 }
 

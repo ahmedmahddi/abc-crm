@@ -22,6 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch, ApiError } from "@/lib/api";
 import { enqueueOfflineMutation, isQueuedOfflineResult, shouldQueueOffline } from "@/lib/offline/outbox";
 import type { QueuedOfflineResult } from "@/lib/offline/outbox";
+import { RoleGate } from "@/components/auth/role-gate";
+import { useAuth } from "@/components/providers/auth-provider";
 
 type ConsultantStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED" | "ALL";
 type Consultant = {
@@ -38,6 +40,7 @@ type ConsultantListResponse = { data: Consultant[]; meta?: { total: number } };
 
 export function ConsultantList() {
   const queryClient = useQueryClient();
+  const { canManageOperations } = useAuth();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ConsultantStatus>("ALL");
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
@@ -94,9 +97,11 @@ export function ConsultantList() {
     <PagePanel as="section" className="flex flex-col gap-4" aria-labelledby="consultant-list-title">
       <SectionHeader
         actions={
-          <Button asChild size="sm">
-            <Link href="/consultants/nouveau">Nouveau consultant</Link>
-          </Button>
+          <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+            <Button asChild size="sm">
+              <Link href="/consultants/nouveau">Nouveau consultant</Link>
+            </Button>
+          </RoleGate>
         }
         count={query.data ? `${consultants.length} profil${consultants.length > 1 ? "s" : ""}` : undefined}
         description="Disponibilite de reference, coordonnees et charge operationnelle."
@@ -136,6 +141,7 @@ export function ConsultantList() {
         {consultants.map((consultant) => (
           <ConsultantRow
             consultant={consultant}
+            canManageOperations={canManageOperations}
             isPending={archive.isPending || restore.isPending}
             key={consultant.id}
             onArchive={() => archive.mutate(consultant)}
@@ -148,11 +154,13 @@ export function ConsultantList() {
 }
 
 function ConsultantRow({
+  canManageOperations,
   consultant,
   isPending,
   onArchive,
   onRestore,
 }: Readonly<{
+  canManageOperations: boolean;
   consultant: Consultant;
   isPending: boolean;
   onArchive: () => void;
@@ -189,14 +197,18 @@ function ConsultantRow({
           <Button asChild size="sm" variant="outline">
             <Link href={`/consultants/${consultant.id}`}>Ouvrir</Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/consultants/${consultant.id}/modifier`}>Modifier</Link>
-          </Button>
-          {consultant.status === "ARCHIVED" ? (
-            <RestoreConsultantDialog isPending={isPending} onConfirm={onRestore} />
-          ) : (
-            <ArchiveConsultantDialog isPending={isPending} onConfirm={onArchive} />
-          )}
+          {canManageOperations ? (
+            <>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/consultants/${consultant.id}/modifier`}>Modifier</Link>
+              </Button>
+              {consultant.status === "ARCHIVED" ? (
+                <RestoreConsultantDialog isPending={isPending} onConfirm={onRestore} />
+              ) : (
+                <ArchiveConsultantDialog isPending={isPending} onConfirm={onArchive} />
+              )}
+            </>
+          ) : null}
         </div>
       </div>
     </article>
@@ -219,9 +231,11 @@ function ConsultantEmptyState() {
       <UserRound className="size-5 text-muted-foreground" aria-hidden="true" />
       <p className="text-sm font-medium">Aucun consultant enregistre</p>
       <p className="text-xs text-muted-foreground">Creez le premier profil pour l'attribuer aux dossiers clients et aux missions.</p>
-      <Button asChild size="sm">
-        <Link href="/consultants/nouveau">Creer un consultant</Link>
-      </Button>
+      <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+        <Button asChild size="sm">
+          <Link href="/consultants/nouveau">Creer un consultant</Link>
+        </Button>
+      </RoleGate>
     </div>
   );
 }

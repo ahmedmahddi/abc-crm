@@ -1,5 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
-import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { JwtService, type JwtSignOptions } from "@nestjs/jwt";
 import * as argon2 from "argon2";
 import { passwordResetConfirmSchema, passwordResetRequestSchema, type UserRole } from "@abc/shared";
@@ -10,6 +18,10 @@ import { LoginDto } from "./dto/login.dto";
 const REFRESH_TOKEN_BYTES = 48;
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TTL_MINUTES = 30;
+const LOGIN_THROTTLE_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_THROTTLE_MAX_FAILURES = Number(process.env.LOGIN_THROTTLE_MAX_FAILURES ?? "5");
+
+const loginFailures = new Map<string, { count: number; firstFailedAt: number; lockedUntil?: number }>();
 
 export interface AuthenticatedUser {
   id: string;
@@ -34,10 +46,18 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || user.status !== "ACTIVE" || !(await argon2.verify(user.passwordHash, dto.password))) {
+    const email = dto.email.trim().toLowerCase();
+    assertLoginAllowed(email);
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      recordFailedLogin(email);
       throw new UnauthorizedException("Identifiants invalides");
     }
+    if (user.status !== "ACTIVE") {
+      throw new ForbiddenException("Ce compte est desactive. Contactez un administrateur.");
+    }
+    clearLoginFailures(email);
 
     const refreshToken = createOpaqueToken();
     const session = await this.prisma.session.create({
@@ -122,7 +142,7 @@ export class AuthService {
 
   async requestPasswordReset(body: unknown) {
     const input = parseInput(passwordResetRequestSchema, body);
-    const user = await this.prisma.user.findUnique({ where: { email: input.email } });
+    const user = await this.prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() } });
     if (!user || user.status !== "ACTIVE") return { data: { ok: true } };
 
     const resetToken = createPasswordResetToken();
@@ -133,6 +153,10 @@ export class AuthService {
         expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000),
       },
     });
+
+    if (process.env.NODE_ENV === "production") {
+      await sendPasswordResetEmail(user.email, resetToken);
+    }
 
     return {
       data: {
@@ -178,6 +202,65 @@ export class AuthService {
         JwtSignOptions["expiresIn"]
       >,
     });
+  }
+}
+
+function assertLoginAllowed(email: string) {
+  const failure = loginFailures.get(email);
+  if (!failure) return;
+  const now = Date.now();
+  if (failure.lockedUntil && failure.lockedUntil > now) {
+    const retryAfterMinutes = Math.ceil((failure.lockedUntil - now) / 60_000);
+    throw new HttpException(`Trop de tentatives. Reessayez dans ${retryAfterMinutes} min.`, HttpStatus.TOO_MANY_REQUESTS);
+  }
+  if (now - failure.firstFailedAt > LOGIN_THROTTLE_WINDOW_MS) {
+    loginFailures.delete(email);
+  }
+}
+
+function recordFailedLogin(email: string) {
+  const now = Date.now();
+  const current = loginFailures.get(email);
+  const next =
+    current && now - current.firstFailedAt <= LOGIN_THROTTLE_WINDOW_MS
+      ? { ...current, count: current.count + 1 }
+      : { count: 1, firstFailedAt: now };
+  if (next.count >= LOGIN_THROTTLE_MAX_FAILURES) {
+    next.lockedUntil = now + LOGIN_THROTTLE_WINDOW_MS;
+  }
+  loginFailures.set(email, next);
+}
+
+function clearLoginFailures(email: string) {
+  loginFailures.delete(email);
+}
+
+async function sendPasswordResetEmail(email: string, token: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.PASSWORD_RESET_FROM_EMAIL;
+  if (!apiKey || !from) {
+    throw new ServiceUnavailableException("Le service de reinitialisation du mot de passe n'est pas configure");
+  }
+
+  const appUrl = process.env.PASSWORD_RESET_BASE_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+  const resetUrl = `${appUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: "Reinitialisation de votre mot de passe ABC CRM",
+      text: `Ouvrez ce lien pour reinitialiser votre mot de passe: ${resetUrl}`,
+      html: `<p>Ouvrez ce lien pour reinitialiser votre mot de passe ABC CRM.</p><p><a href="${resetUrl}">Reinitialiser mon mot de passe</a></p><p>Ce lien expire dans ${PASSWORD_RESET_TTL_MINUTES} minutes.</p>`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new ServiceUnavailableException("L'email de reinitialisation n'a pas pu etre envoye");
   }
 }
 
