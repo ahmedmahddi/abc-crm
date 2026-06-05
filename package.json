@@ -4,6 +4,10 @@
   "private": true,
   "description": "PWA CRM for ABC Consulting / bureau d'étude missions.",
   "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": "22.x",
+    "pnpm": "9.15.0"
+  },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
