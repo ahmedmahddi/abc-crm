@@ -27,6 +27,7 @@ type ClientResponse = {
     zone: string | null;
     activitySector: string;
     applicationDomain: string | null;
+    reference: string | null;
     color: string;
     cadreCount: number;
     nonCadreCount: number;
@@ -65,6 +66,7 @@ function LoadedClientEditForm({ client }: Readonly<{ client: ClientResponse["dat
       zone: client.zone ?? "",
       activitySector: client.activitySector,
       applicationDomain: client.applicationDomain ?? "",
+      reference: client.reference ?? "",
       color: client.color,
       cadreCount: client.cadreCount,
       nonCadreCount: client.nonCadreCount,
@@ -141,6 +143,7 @@ function LoadedClientEditForm({ client }: Readonly<{ client: ClientResponse["dat
             <Field data-invalid={Boolean(form.formState.errors.activitySector)}><FieldLabel htmlFor="activitySector">Secteur d’activité</FieldLabel><Input id="activitySector" aria-invalid={Boolean(form.formState.errors.activitySector)} {...form.register("activitySector")} />{form.formState.errors.activitySector ? <FieldError>Indiquez le secteur d’activité.</FieldError> : null}</Field>
           </div>
           <Field><FieldLabel htmlFor="applicationDomain">Domaine d’application</FieldLabel><Input id="applicationDomain" {...form.register("applicationDomain")} /></Field>
+          <Field><FieldLabel htmlFor="reference">Référence</FieldLabel><Input id="reference" placeholder="Référence interne ou dossier client" {...form.register("reference")} /></Field>
         </FieldGroup></CardContent>
       </Card>
       <Card>

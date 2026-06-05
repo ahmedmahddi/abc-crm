@@ -24,6 +24,7 @@ export class ClientsService {
               { companyName: { contains: q, mode: "insensitive" } },
               { fiscalNumber: { contains: q, mode: "insensitive" } },
               { activitySector: { contains: q, mode: "insensitive" } },
+              { reference: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -63,6 +64,7 @@ export class ClientsService {
               { companyName: { contains: q, mode: "insensitive" } },
               { fiscalNumber: { contains: q, mode: "insensitive" } },
               { activitySector: { contains: q, mode: "insensitive" } },
+              { reference: { contains: q, mode: "insensitive" } },
             ],
           }
         : {}),
@@ -75,7 +77,7 @@ export class ClientsService {
       orderBy: toClientOrderBy(sortBy, sortDir),
     });
     const rows = [
-      ["Entreprise", "Matricule fiscal", "Zone", "Adresse", "Secteur", "Domaine", "Cadres", "Non-cadres", "Effectif total", "Responsables", "Statut"],
+      ["Entreprise", "Matricule fiscal", "Zone", "Adresse", "Secteur", "Domaine", "Reference", "Cadres", "Non-cadres", "Effectif total", "Responsables", "Statut"],
       ...clients.map((client) => [
         client.companyName,
         client.fiscalNumber,
@@ -83,6 +85,7 @@ export class ClientsService {
         client.address,
         client.activitySector,
         client.applicationDomain ?? "",
+        client.reference ?? "",
         String(client.cadreCount),
         String(client.nonCadreCount),
         String(client.cadreCount + client.nonCadreCount),
@@ -235,6 +238,7 @@ function toCreateData(input: ClientCreateInput): Prisma.ClientCreateInput {
     zone: input.zone || null,
     activitySector: normalizeOptionalText(input.activitySector),
     applicationDomain: input.applicationDomain || null,
+    reference: input.reference || null,
     color: input.color || "#125885",
     cadreCount: input.cadreCount ?? 0,
     nonCadreCount: input.nonCadreCount ?? 0,
@@ -253,6 +257,7 @@ function toUpdateFields(fields: Omit<ReturnType<typeof clientUpdateSchema.parse>
     ...(fields.zone !== undefined ? { zone: fields.zone } : {}),
     ...(fields.activitySector !== undefined ? { activitySector: fields.activitySector } : {}),
     ...(fields.applicationDomain !== undefined ? { applicationDomain: fields.applicationDomain } : {}),
+    ...(fields.reference !== undefined ? { reference: fields.reference || null } : {}),
     ...(fields.color !== undefined ? { color: fields.color } : {}),
     ...(fields.cadreCount !== undefined ? { cadreCount: fields.cadreCount } : {}),
     ...(fields.nonCadreCount !== undefined ? { nonCadreCount: fields.nonCadreCount } : {}),

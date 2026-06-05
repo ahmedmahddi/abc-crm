@@ -179,6 +179,7 @@ model Client {
   zone                  String?
   activitySector        String
   applicationDomain     String?
+  reference             String?
   color                 String              @default("#125885")
   cadreCount            Int                 @default(0)
   nonCadreCount         Int                 @default(0)

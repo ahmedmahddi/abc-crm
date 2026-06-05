@@ -32,6 +32,7 @@ const defaultValues: ClientCreateInput = {
   zone: "",
   activitySector: "",
   applicationDomain: "",
+  reference: "",
   color: "#125885",
   cadreCount: 0,
   nonCadreCount: 0,
@@ -175,6 +176,10 @@ export function ClientCreateForm() {
             <Field>
               <FieldLabel htmlFor="applicationDomain">Domaine d’application</FieldLabel>
               <Input id="applicationDomain" placeholder="Périmètre ou activité concernée" {...form.register("applicationDomain")} />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="reference">Référence</FieldLabel>
+              <Input id="reference" placeholder="Référence interne ou dossier client" {...form.register("reference")} />
             </Field>
           </FieldGroup>
         </CardContent>

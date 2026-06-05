@@ -27,6 +27,7 @@ type ClientDetailResponse = {
     zone: string | null;
     activitySector: string;
     applicationDomain: string | null;
+    reference: string | null;
     color: string;
     cadreCount: number;
     nonCadreCount: number;
@@ -129,6 +130,7 @@ export function ClientDetail({ clientId }: Readonly<{ clientId: string }>) {
             <dl className="grid grid-cols-2 gap-4 border-t pt-4">
               <div><dt className="text-xs text-muted-foreground">Zone</dt><dd className="mt-1 font-medium">{client.zone || "Non renseignée"}</dd></div>
               <div><dt className="text-xs text-muted-foreground">Domaine</dt><dd className="mt-1 font-medium">{client.applicationDomain || "Non renseigné"}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">Référence</dt><dd className="mt-1 font-medium">{client.reference || "Non renseignée"}</dd></div>
             </dl>
           </CardContent>
         </Card>

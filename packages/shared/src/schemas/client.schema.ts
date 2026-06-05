@@ -19,6 +19,7 @@ export const clientCreateSchema = z.object({
   zone: optionalText,
   activitySector: optionalText,
   applicationDomain: optionalText,
+  reference: optionalText,
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#125885"),
   cadreCount: z.coerce.number().int().min(0).default(0),
   nonCadreCount: z.coerce.number().int().min(0).default(0),
