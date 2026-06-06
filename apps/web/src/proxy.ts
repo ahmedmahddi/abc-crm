@@ -8,12 +8,14 @@ export function proxy(request: NextRequest) {
   const publicAuthPaths = new Set(["/forgot-password", "/logged-out", "/login", "/reset-password", "/session-expired"]);
   const isPublicAuthPage = publicAuthPaths.has(request.nextUrl.pathname);
   const hasAccessToken = request.cookies.has("access_token");
+  const hasRefreshToken = request.cookies.has("refresh_token");
+  const hasSessionCookie = hasAccessToken || hasRefreshToken;
 
-  if (!hasAccessToken && !isPublicAuthPage) {
+  if (!hasSessionCookie && !isPublicAuthPage) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (hasAccessToken && request.nextUrl.pathname === "/login") {
+  if (hasSessionCookie && request.nextUrl.pathname === "/login") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

@@ -16,8 +16,8 @@ import { LoginDto } from "./dto/login.dto";
 import { CsrfGuard } from "./guards/csrf.guard";
 import { JwtAuthGuard, type AuthenticatedRequest } from "./guards/jwt-auth.guard";
 
-const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
-const REFRESH_TOKEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const DEFAULT_ACCESS_TOKEN_TTL = "15m";
+const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 
 @Controller("auth")
 export class AuthController {
@@ -76,10 +76,12 @@ function setAuthCookies(
 ) {
   const secure = process.env.COOKIE_SECURE === "true";
   const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
-  response.cookie("access_token", result.accessToken, cookieOptions(ACCESS_TOKEN_MAX_AGE_MS, secure, sameSite));
-  response.cookie("refresh_token", result.refreshToken, cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure, sameSite));
+  const accessTokenMaxAge = parseDurationMs(process.env.ACCESS_TOKEN_TTL ?? DEFAULT_ACCESS_TOKEN_TTL);
+  const refreshTokenMaxAge = getRefreshTokenMaxAgeMs();
+  response.cookie("access_token", result.accessToken, cookieOptions(accessTokenMaxAge, secure, sameSite));
+  response.cookie("refresh_token", result.refreshToken, cookieOptions(refreshTokenMaxAge, secure, sameSite));
   response.cookie("csrf_token", result.csrfToken, {
-    ...cookieOptions(REFRESH_TOKEN_MAX_AGE_MS, secure, sameSite),
+    ...cookieOptions(refreshTokenMaxAge, secure, sameSite),
     httpOnly: false,
   });
 }
@@ -92,4 +94,28 @@ function clearAuthCookies(response: Response) {
 
 function cookieOptions(maxAge: number, secure: boolean, sameSite: "lax" | "none") {
   return { httpOnly: true, sameSite, secure, maxAge, path: "/" };
+}
+
+function getRefreshTokenMaxAgeMs() {
+  const days = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? DEFAULT_REFRESH_TOKEN_TTL_DAYS);
+  const safeDays = Number.isFinite(days) && days > 0 ? days : DEFAULT_REFRESH_TOKEN_TTL_DAYS;
+  return safeDays * 24 * 60 * 60 * 1000;
+}
+
+function parseDurationMs(value: string) {
+  const trimmed = value.trim().toLowerCase();
+  const match = /^(\d+)\s*(ms|s|m|h|d)?$/.exec(trimmed);
+  if (!match) return parseDurationMs(DEFAULT_ACCESS_TOKEN_TTL);
+
+  const amount = Number(match[1]);
+  const unit = (match[2] ?? "s") as "ms" | "s" | "m" | "h" | "d";
+  const multipliers: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+
+  return amount * (multipliers[unit] ?? 1000);
 }
