@@ -1,4 +1,4 @@
-export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1");
+export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || "/api/v1");
 
 type ApiFetchInit = RequestInit & {
   redirectOnUnauthorized?: boolean;
@@ -76,7 +76,8 @@ async function requestUpload(path: string, body: FormData) {
 }
 
 function normalizeApiUrl(url: string) {
-  return url.replace(/\/+$/, "");
+  const normalized = url.trim().replace(/\/+$/, "");
+  return normalized || "/api/v1";
 }
 
 function createApiUrl(path: string) {
