@@ -1,4 +1,4 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1");
 
 type ApiFetchInit = RequestInit & {
   redirectOnUnauthorized?: boolean;
@@ -55,7 +55,7 @@ async function request(path: string, init?: ApiFetchInit) {
   const { redirectOnUnauthorized: _redirectOnUnauthorized, retryOnUnauthorized: _retryOnUnauthorized, ...fetchInit } = init ?? {};
   void _redirectOnUnauthorized;
   void _retryOnUnauthorized;
-  return fetch(`${API_URL}${path}`, {
+  return fetch(createApiUrl(path), {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
@@ -67,12 +67,20 @@ async function request(path: string, init?: ApiFetchInit) {
 }
 
 async function requestUpload(path: string, body: FormData) {
-  return fetch(`${API_URL}${path}`, {
+  return fetch(createApiUrl(path), {
     body,
     credentials: "include",
     headers: getCsrfHeader(),
     method: "POST",
   });
+}
+
+function normalizeApiUrl(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+function createApiUrl(path: string) {
+  return `${API_URL}/${path.replace(/^\/+/, "")}`;
 }
 
 function getCsrfHeader() {
