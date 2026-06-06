@@ -20,6 +20,14 @@ export const metadata: Metadata = {
   title: "ABC CRM",
   description: "CRM PWA for ABC Consulting missions and clients.",
   applicationName: "ABC CRM",
+  icons: {
+    icon: [
+      { url: "/brand/abc-icon.svg", type: "image/svg+xml" },
+      { url: "/brand/abc-icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: "/brand/abc-icon-32.png",
+    apple: [{ url: "/brand/abc-icon-192.png", sizes: "192x192", type: "image/png" }],
+  },
   manifest: "/manifest.webmanifest",
 };
 

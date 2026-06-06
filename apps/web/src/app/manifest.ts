@@ -11,15 +11,15 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#125885",
     icons: [
       {
-        src: "/brand/abc-logo.webp",
+        src: "/brand/abc-icon-192.png",
         sizes: "192x192",
-        type: "image/webp",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/brand/abc-logo.webp",
+        src: "/brand/abc-icon-512.png",
         sizes: "512x512",
-        type: "image/webp",
+        type: "image/png",
         purpose: "maskable",
       },
     ],
