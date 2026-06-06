@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   const publicAuthPaths = new Set(["/forgot-password", "/logged-out", "/login", "/reset-password", "/session-expired"]);
   const isPublicAuthPage = publicAuthPaths.has(request.nextUrl.pathname);
   const hasAccessToken = request.cookies.has("access_token");

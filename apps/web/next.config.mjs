@@ -16,6 +16,17 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(import.meta.dirname, "../.."),
   },
+  async rewrites() {
+    const apiUrl = process.env.API_PROXY_URL?.replace(/\/+$/, "");
+    return apiUrl
+      ? [
+          {
+            source: "/api/v1/:path*",
+            destination: `${apiUrl}/api/v1/:path*`,
+          },
+        ]
+      : [];
+  },
   images: {
     remotePatterns: [
       {
