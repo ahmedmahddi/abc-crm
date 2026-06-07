@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { CsrfGuard } from "../auth/guards/csrf.guard";
@@ -34,6 +35,14 @@ export class ClientsController {
   @UseGuards(CsrfGuard, RolesGuard)
   create(@Body() body: unknown, @Req() request: AuthenticatedRequest) {
     return this.service.create(body, request.user.id);
+  }
+
+  @Post("import")
+  @Roles("ADMIN", "RESPONSABLE")
+  @UseGuards(CsrfGuard, RolesGuard)
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  importExcel(@UploadedFile() file: Express.Multer.File | undefined, @Req() request: AuthenticatedRequest) {
+    return this.service.importExcel(file, request.user.id);
   }
 
   @Patch(":id")

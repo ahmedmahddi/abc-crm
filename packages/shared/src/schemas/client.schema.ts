@@ -44,6 +44,20 @@ export type ClientCreateInput = z.infer<typeof clientCreateSchema>;
 export type ClientUpdateInput = z.infer<typeof clientUpdateSchema>;
 export type ClientListQuery = z.infer<typeof clientListQuerySchema>;
 
+export type ClientImportRowStatus = "CREATED" | "SKIPPED" | "FAILED";
+
+export type ClientImportResult = {
+  created: number;
+  skipped: number;
+  failed: number;
+  rows: Array<{
+    rowNumber: number;
+    companyName: string;
+    status: ClientImportRowStatus;
+    reason?: string;
+  }>;
+};
+
 function blankToUndefined(value: unknown) {
   return typeof value === "string" && value.trim().length === 0 ? undefined : value;
 }

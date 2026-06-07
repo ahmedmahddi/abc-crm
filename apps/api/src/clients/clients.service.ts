@@ -2,11 +2,13 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@abc/db";
 import {
+  type ClientImportResult,
   clientCreateSchema,
   clientListQuerySchema,
   clientUpdateSchema,
   type ClientCreateInput,
 } from "@abc/shared";
+import ExcelJS from "exceljs";
 import { z } from "zod";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -119,6 +121,81 @@ export class ClientsService {
     } catch (error) {
       handleKnownDatabaseError(error);
     }
+  }
+
+  async importExcel(file: Express.Multer.File | undefined, userId: string) {
+    assertExcelFile(file);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Uint8Array.from(file.buffer).buffer);
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) throw new BadRequestException("Le fichier Excel ne contient aucune feuille exploitable");
+
+    const header = findClientHeader(worksheet);
+    const parsedRows = parseClientRows(worksheet, header);
+    if (parsedRows.length === 0) {
+      throw new BadRequestException("Aucun client valide n'a ete trouve dans le fichier Excel");
+    }
+
+    const result: ClientImportResult = { created: 0, skipped: 0, failed: 0, rows: [] };
+
+    for (const row of parsedRows) {
+      try {
+        const status = await this.prisma.$transaction(async (transaction) => {
+          const existing = await transaction.client.findFirst({
+            where: { companyName: { equals: row.companyName, mode: "insensitive" } },
+            select: { id: true },
+          });
+          if (existing) return "SKIPPED" as const;
+
+          const contacts = buildImportedContacts(row.contactNames, row.emails);
+          const created = await transaction.client.create({
+            data: toCreateData({
+              companyName: row.companyName,
+              fiscalNumber: "",
+              address: row.address,
+              zone: "",
+              activitySector: row.activitySector,
+              applicationDomain: row.applicationDomain,
+              reference: row.reference,
+              color: "#125885",
+              cadreCount: contacts.length,
+              nonCadreCount: 0,
+              responsibleConsultantIds: [],
+              contacts,
+            }),
+          });
+          await transaction.activityLog.create({
+            data: {
+              userId,
+              action: "CLIENT_IMPORTED",
+              entityType: "CLIENT",
+              entityId: created.id,
+              description: `Client importe depuis Excel: ${created.companyName}`,
+            },
+          });
+          return "CREATED" as const;
+        });
+
+        result[status === "CREATED" ? "created" : "skipped"] += 1;
+        result.rows.push({
+          rowNumber: row.rowNumber,
+          companyName: row.companyName,
+          status,
+          ...(status === "SKIPPED" ? { reason: "Client deja present" } : {}),
+        });
+      } catch (error) {
+        result.failed += 1;
+        result.rows.push({
+          rowNumber: row.rowNumber,
+          companyName: row.companyName,
+          status: "FAILED",
+          reason: getImportErrorMessage(error),
+        });
+      }
+    }
+
+    return { data: result };
   }
 
   async update(id: string, body: unknown, userId: string) {
@@ -296,6 +373,154 @@ function normalizeNullableText(value: string | undefined) {
 
 function createTemporaryFiscalNumber() {
   return `TEMP-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().slice(0, 8)}`;
+}
+
+function assertExcelFile(file: Express.Multer.File | undefined): asserts file is Express.Multer.File {
+  if (!file) throw new BadRequestException("Fichier Excel manquant");
+  const lowerName = file.originalname.toLowerCase();
+  const isExcel =
+    lowerName.endsWith(".xlsx") ||
+    lowerName.endsWith(".xls") ||
+    file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.mimetype === "application/vnd.ms-excel";
+  if (!isExcel) throw new BadRequestException("Format non supporte. Importez un fichier Excel .xlsx ou .xls");
+}
+
+type ClientImportHeader = {
+  headerRow: number;
+  companyName: number;
+  activitySector: number;
+  address: number;
+  contact: number;
+  email: number;
+  reference: number;
+  applicationDomain: number;
+};
+
+type ParsedClientImportRow = {
+  rowNumber: number;
+  companyName: string;
+  activitySector: string;
+  address: string;
+  contactNames: string[];
+  emails: string[];
+  reference: string;
+  applicationDomain: string;
+};
+
+function findClientHeader(worksheet: ExcelJS.Worksheet): ClientImportHeader {
+  for (let rowNumber = 1; rowNumber <= Math.min(worksheet.rowCount, 15); rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    const companyName = findHeaderColumn(row, ["clients", "client"]);
+    const activitySector = findHeaderColumn(row, ["domaine d'activite", "domaine activite", "secteur"]);
+    const address = findHeaderColumn(row, ["adresse", "address"]);
+    const contact = findHeaderColumn(row, ["contact"]);
+    const email = findHeaderColumn(row, ["e-mail", "email", "mail"]);
+    const reference = findHeaderColumn(row, ["referentiels", "reference"]);
+    const applicationDomain = findHeaderColumn(row, ["audit"]);
+    if (companyName && activitySector && address) {
+      return {
+        headerRow: rowNumber,
+        companyName,
+        activitySector,
+        address,
+        contact: contact ?? 0,
+        email: email ?? 0,
+        reference: reference ?? 0,
+        applicationDomain: applicationDomain ?? 0,
+      };
+    }
+  }
+  throw new BadRequestException("Colonnes clients introuvables. Verifiez que le fichier contient une ligne d'en-tete.");
+}
+
+function findHeaderColumn(row: ExcelJS.Row, labels: string[]) {
+  for (let column = 1; column <= row.cellCount; column += 1) {
+    const normalized = normalizeHeader(cellToText(row.getCell(column).value));
+    if (labels.some((label) => normalized.includes(normalizeHeader(label)))) return column;
+  }
+  return undefined;
+}
+
+function parseClientRows(worksheet: ExcelJS.Worksheet, header: ClientImportHeader): ParsedClientImportRow[] {
+  const rows: ParsedClientImportRow[] = [];
+  for (let rowNumber = header.headerRow + 1; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    const companyName = cellToText(row.getCell(header.companyName).value);
+    if (!companyName) continue;
+
+    rows.push({
+      rowNumber,
+      companyName,
+      activitySector: cellToText(row.getCell(header.activitySector).value),
+      address: cellToText(row.getCell(header.address).value),
+      contactNames: splitList(cellToText(header.contact ? row.getCell(header.contact).value : "")),
+      emails: splitEmails(cellToText(header.email ? row.getCell(header.email).value : "")),
+      reference: cellToText(header.reference ? row.getCell(header.reference).value : ""),
+      applicationDomain: cellToText(header.applicationDomain ? row.getCell(header.applicationDomain).value : ""),
+    });
+  }
+  return rows;
+}
+
+function buildImportedContacts(contactNames: string[], emails: string[]): ClientCreateInput["contacts"] {
+  if (contactNames.length === 0) {
+    return emails.map((email) => ({
+      fullName: email.split("@")[0] ?? email,
+      email,
+      type: "CADRE" as const,
+    }));
+  }
+
+  return contactNames.map((fullName, index) => ({
+    fullName,
+    email: emails[index] ?? emails[0] ?? "",
+    type: "CADRE" as const,
+  }));
+}
+
+function splitList(value: string) {
+  return value
+    .split(/[,;\n\r]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitEmails(value: string) {
+  return value
+    .split(/[\s,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item));
+}
+
+function cellToText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value).trim();
+  }
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "object") {
+    if ("text" in value && typeof value.text === "string") return value.text.trim();
+    if ("result" in value) return cellToText(value.result);
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return value.richText.map((part) => (typeof part?.text === "string" ? part.text : "")).join("").trim();
+    }
+  }
+  return "";
+}
+
+function normalizeHeader(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getImportErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  return "Import impossible pour cette ligne";
 }
 
 function toClientSummary<T extends ClientWithConsultants>(client: T) {

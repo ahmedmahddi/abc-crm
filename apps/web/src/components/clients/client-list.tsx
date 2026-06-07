@@ -1,9 +1,10 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArrowDown, ArrowUp, Building2, Download, Edit, Eye, RotateCcw, Search } from "lucide-react";
+import type { ClientImportResult } from "@abc/shared";
+import { Archive, ArrowDown, ArrowUp, Building2, Download, Edit, Eye, RotateCcw, Search, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { FilterBar, FilterField, PagePanel, RecordList, SectionHeader } from "@/
 import { RoleGate } from "@/components/auth/role-gate";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { API_URL, apiFetch, ApiError } from "@/lib/api";
+import { API_URL, apiFetch, ApiError, apiUpload } from "@/lib/api";
 
 type ClientStatus = "ACTIVE" | "ARCHIVED";
 type StatusFilter = ClientStatus | "ALL";
@@ -46,6 +47,7 @@ const sortableColumns: Array<{ label: string; value: SortBy }> = [
 export function ClientList() {
   const queryClient = useQueryClient();
   const { canManageOperations } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("ACTIVE");
   const [page, setPage] = useState(1);
@@ -55,6 +57,7 @@ export function ClientList() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
   const isOnline = useOnlineStatus();
   const query = useQuery({
@@ -78,6 +81,20 @@ export function ClientList() {
   const restoreMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/clients/${id}/restore`, { method: "POST" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["clients"] }),
+  });
+  const importMutation = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return apiUpload<{ data: ClientImportResult }>("/clients/import", formData);
+    },
+    onError: (error) => {
+      setImportError(error instanceof ApiError ? error.message : "Impossible d'importer le fichier Excel.");
+    },
+    onSuccess: async () => {
+      setImportError(null);
+      await queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
   });
 
   const clients = query.data?.data ?? [];
@@ -134,18 +151,45 @@ export function ClientList() {
     <PagePanel as="section" className="flex flex-col gap-4" aria-labelledby="client-list-title">
       <SectionHeader
         actions={
-          <Button
-            disabled={isExporting || !isOnline}
-            onClick={() =>
-              void exportClients({ q: deferredSearch, sortBy, sortDir, status }, setIsExporting, setExportError)
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Download data-icon="inline-start" />
-            {isExporting ? "Export..." : "Exporter CSV"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
+              <input
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                aria-label="Importer une liste de clients Excel"
+                className="sr-only"
+                disabled={!isOnline || importMutation.isPending}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) importMutation.mutate(file);
+                  event.target.value = "";
+                }}
+                ref={fileInputRef}
+                type="file"
+              />
+              <Button
+                disabled={!isOnline || importMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Upload data-icon="inline-start" />
+                {importMutation.isPending ? "Import..." : "Importer Excel"}
+              </Button>
+            </RoleGate>
+            <Button
+              disabled={isExporting || !isOnline}
+              onClick={() =>
+                void exportClients({ q: deferredSearch, sortBy, sortDir, status }, setIsExporting, setExportError)
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Download data-icon="inline-start" />
+              {isExporting ? "Export..." : "Exporter CSV"}
+            </Button>
+          </div>
         }
         count={meta ? `${meta.total} client${meta.total > 1 ? "s" : ""}` : undefined}
         description="Retrouvez les identites legales, secteurs, effectifs et responsables de compte."
@@ -218,6 +262,8 @@ export function ClientList() {
         </p>
       ) : null}
       {exportError ? <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{exportError}</p> : null}
+      {importError ? <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">{importError}</p> : null}
+      {importMutation.data ? <ClientImportSummary result={importMutation.data.data} /> : null}
       {actionError ? (
         <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">
           {actionError instanceof ApiError ? actionError.message : "Impossible d'appliquer l'action demandee."}
@@ -279,6 +325,26 @@ export function ClientList() {
         />
       ) : null}
     </PagePanel>
+  );
+}
+
+function ClientImportSummary({ result }: Readonly<{ result: ClientImportResult }>) {
+  const failedRows = result.rows.filter((row) => row.status === "FAILED").slice(0, 3);
+  return (
+    <div className="rounded-md border border-brand-200 bg-brand-50 px-3 py-3 text-sm text-brand-900" role="status">
+      <p className="font-semibold">
+        Import termine : {result.created} cree{result.created > 1 ? "s" : ""}, {result.skipped} ignore{result.skipped > 1 ? "s" : ""}, {result.failed} echec{result.failed > 1 ? "s" : ""}.
+      </p>
+      {failedRows.length > 0 ? (
+        <ul className="mt-2 list-disc pl-5 text-xs leading-5 text-muted-foreground">
+          {failedRows.map((row) => (
+            <li key={`${row.rowNumber}-${row.companyName}`}>
+              Ligne {row.rowNumber} - {row.companyName}: {row.reason ?? "Erreur inconnue"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
