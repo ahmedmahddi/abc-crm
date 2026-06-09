@@ -20,6 +20,7 @@ export function PushNotificationSettings() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     setIsSupported(supported);
     if (!supported) {
@@ -27,20 +28,30 @@ export function PushNotificationSettings() {
       return;
     }
 
-    void apiFetch<PublicKeyResponse>("/notifications/push/public-key")
-      .then(async (response) => {
+    void apiFetch<PublicKeyResponse>("/notifications/push/public-key", { cache: "no-store" })
+      .then((response) => {
+        if (cancelled) return;
         setServerEnabled(response.data.enabled);
         setPublicKey(response.data.publicKey);
-        const registration = await navigator.serviceWorker.ready;
-        setIsSubscribed(Boolean(await registration.pushManager.getSubscription()));
+        setIsConfigLoaded(true);
+        void getCurrentSubscription()
+          .then((subscription) => {
+            if (!cancelled) setIsSubscribed(Boolean(subscription));
+          })
+          .catch(() => {
+            if (!cancelled) setIsSubscribed(false);
+          });
       })
       .catch(() => {
+        if (cancelled) return;
         setServerEnabled(false);
         setPublicKey(null);
-      })
-      .finally(() => {
         setIsConfigLoaded(true);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const enable = async () => {
@@ -54,7 +65,7 @@ export function PushNotificationSettings() {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Autorisation refusee par le navigateur.");
 
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getReadyServiceWorker();
       const existingSubscription = await registration.pushManager.getSubscription();
       if (existingSubscription) {
         await apiFetch("/notifications/push/subscriptions", {
@@ -86,7 +97,7 @@ export function PushNotificationSettings() {
     setError(null);
     setMessage(null);
     try {
-      const registration = await navigator.serviceWorker.ready;
+      const registration = await getReadyServiceWorker();
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
         await apiFetch("/notifications/push/subscriptions", {
@@ -181,6 +192,28 @@ function urlBase64ToUint8Array(value: string) {
   const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
   const rawData = window.atob(base64);
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+}
+
+function getCurrentSubscription() {
+  return getReadyServiceWorker().then((registration) => registration.pushManager.getSubscription());
+}
+
+function getReadyServiceWorker() {
+  return withTimeout(
+    navigator.serviceWorker.ready,
+    8000,
+    "Le service worker PWA n'est pas encore pret. Rechargez l'application puis reessayez.",
+  );
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
