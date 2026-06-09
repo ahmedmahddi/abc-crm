@@ -164,6 +164,7 @@ model Consultant {
   fullName        String
   phone           String?
   email           String              @unique
+  color           String              @default("#125885")
   status          ConsultantStatus    @default(ACTIVE)
   userId          String?             @unique
   createdAt       DateTime            @default(now())

@@ -11,6 +11,7 @@ import listPlugin from "@fullcalendar/list";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import frLocale from "@fullcalendar/core/locales/fr";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { consultantColorPalette } from "@abc/shared";
 import {
   addDays,
   endOfMonth,
@@ -56,7 +57,7 @@ type Mission = {
   cancellationReason: string | null;
   version: number;
   client: { id: string; companyName: string; color: string | null };
-  consultants: { id: string; fullName: string; role: "RESPONSABLE" | "PARTICIPANT" }[];
+  consultants: { id: string; fullName: string; color?: string | null; role: "RESPONSABLE" | "PARTICIPANT" }[];
 };
 type ListResponse<T> = { data: T[] };
 type FilterState = { clientId: string; consultantId: string; mode: string };
@@ -556,10 +557,10 @@ function MobileMonthGrid({
                     const cancelledByClient = isClientCancelledMission(mission);
                     return (
                       <span
-                        className={`truncate rounded border px-1 py-0.5 text-[0.56rem] leading-none ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : MISSION_TYPE_DETAILS[mission.missionType].className}`}
+                        className={`truncate rounded border px-1 py-0.5 text-[0.56rem] leading-none ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : "border-brand-200 bg-brand-50 text-brand-700"}`}
                         key={mission.id}
                       >
-                        {cancelledByClient ? "Annul." : MISSION_TYPE_DETAILS[mission.missionType].shortLabel}
+                        {cancelledByClient ? "Annul." : mission.client.companyName}
                       </span>
                     );
                   })}
@@ -610,6 +611,7 @@ function CalendarEvent({
           {cancelledByClient ? "Annul." : type.shortLabel}
         </span>
         <span className="min-w-0 truncate font-medium">{mission.client.companyName}</span>
+        <ConsultantColorDots consultants={mission.consultants} />
       </div>
     );
   }
@@ -628,7 +630,34 @@ function CalendarEvent({
         {cancelledByClient ? "Annulee client" : type.shortLabel} · {mode.label}
         {mission.title ? ` · ${mission.title}` : ""}
       </p>
+      <ConsultantColorDots consultants={mission.consultants} />
     </div>
+  );
+}
+
+function ConsultantColorDots({
+  consultants,
+}: Readonly<{ consultants: { id: string; fullName: string; color?: string | null }[] }>) {
+  if (consultants.length === 0) return null;
+
+  return (
+    <span
+      aria-label={`Consultants: ${consultants.map((consultant) => consultant.fullName).join(", ")}`}
+      className="flex shrink-0 items-center gap-0.5"
+      role="img"
+    >
+      {consultants.slice(0, 4).map((consultant) => (
+        <span
+          className="inline-block size-2 rounded-full border border-white shadow-sm"
+          key={consultant.id}
+          style={{ backgroundColor: consultant.color ?? consultantColorPalette[0] }}
+          title={consultant.fullName}
+        />
+      ))}
+      {consultants.length > 4 ? (
+        <span className="text-[0.6rem] text-muted-foreground">+{consultants.length - 4}</span>
+      ) : null}
+    </span>
   );
 }
 
@@ -659,7 +688,10 @@ function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
           </span>
         </span>
       </div>
-      <p className="mt-1 font-semibold">{mission.client.companyName}</p>
+      <div className="mt-1 flex items-center gap-2">
+        <ConsultantColorDots consultants={mission.consultants} />
+        <p className="min-w-0 truncate font-semibold">{mission.client.companyName}</p>
+      </div>
       <p className="mt-1 text-xs text-muted-foreground">
         {type.label} · {mission.title} ·{" "}
         {mission.consultants.map((consultant) => consultant.fullName).join(", ")}
@@ -739,7 +771,7 @@ function formatDayMissionSummary(missions: Mission[]) {
     .map((mission) =>
       isClientCancelledMission(mission)
         ? `Annulation client: ${mission.client.companyName}`
-        : `${MISSION_TYPE_DETAILS[mission.missionType].label}: ${mission.client.companyName}`,
+        : mission.client.companyName,
     )
     .join(", ");
 }

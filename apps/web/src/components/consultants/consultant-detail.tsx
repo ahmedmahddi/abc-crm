@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { consultantColorPalette } from "@abc/shared";
 import { Mail, Phone, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { RoleGate } from "@/components/auth/role-gate";
 type Consultant = {
   id: string;
   fullName: string;
+  color?: string | null;
   email: string;
   phone?: string;
   status: string;
@@ -97,6 +99,12 @@ export function ConsultantDetail({ id }: Readonly<{ id: string }>) {
       <header className="border-b pb-4">
         <Breadcrumbs items={[{ href: "/consultants", label: "Consultants" }, { label: consultant.fullName }]} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span
+            aria-label={`Couleur planning de ${consultant.fullName}`}
+            className="size-3 rounded-full border border-white shadow-sm"
+            style={{ backgroundColor: consultant.color ?? consultantColorPalette[0] }}
+            title="Couleur planning"
+          />
           <h1 className="text-xl font-semibold tracking-tight">{consultant.fullName}</h1>
           <Badge>{consultant.status}</Badge>
         </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { consultantColorPalette } from "@abc/shared";
 import { Archive, RotateCcw, Search, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type ConsultantStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED" | "ALL";
 type Consultant = {
   id: string;
   fullName: string;
+  color?: string | null;
   email: string;
   phone: string | null;
   status: "ACTIVE" | "INACTIVE" | "ARCHIVED";
@@ -170,6 +172,12 @@ function ConsultantRow({
     <article className="flex flex-col gap-3 rounded-md border bg-white p-4 shadow-soft transition-colors hover:border-brand-200 hover:bg-brand-50/60 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
+          <span
+            aria-label={`Couleur planning de ${consultant.fullName}`}
+            className="size-2.5 rounded-full border border-white shadow-sm"
+            style={{ backgroundColor: consultant.color ?? consultantColorPalette[0] }}
+            title="Couleur planning"
+          />
           <h3 className="truncate text-sm font-semibold">
             <Link className="hover:text-brand-700 hover:underline" href={`/consultants/${consultant.id}`}>
               {consultant.fullName}

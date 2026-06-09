@@ -246,7 +246,7 @@ export class MissionsService {
 const missionInclude = {
   client: { select: { id: true, companyName: true, color: true, status: true } },
   consultants: {
-    include: { consultant: { select: { id: true, fullName: true, email: true, status: true, userId: true } } },
+    include: { consultant: { select: { id: true, fullName: true, email: true, color: true, status: true, userId: true } } },
   },
 } satisfies Prisma.MissionInclude;
 

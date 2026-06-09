@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@abc/db";
-import { consultantCreateSchema, consultantListQuerySchema, consultantUpdateSchema } from "@abc/shared";
+import { consultantColorPalette, consultantCreateSchema, consultantListQuerySchema, consultantUpdateSchema } from "@abc/shared";
 import { z } from "zod";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -44,7 +44,13 @@ export class ConsultantsService {
     const input = parseInput(consultantCreateSchema, body);
     try {
       const consultant = await this.prisma.$transaction(async (transaction) => {
-        const created = await transaction.consultant.create({ data: { ...input, phone: input.phone || null } });
+        const created = await transaction.consultant.create({
+          data: {
+            ...input,
+            color: input.color ?? getDefaultConsultantColor(input.email),
+            phone: input.phone || null,
+          },
+        });
         await transaction.activityLog.create({ data: { userId, action: "CONSULTANT_CREATED", entityType: "CONSULTANT", entityId: created.id } });
         return created;
       });
@@ -68,6 +74,7 @@ export class ConsultantsService {
           data: {
             ...(fields.fullName !== undefined ? { fullName: fields.fullName } : {}),
             ...(fields.email !== undefined ? { email: fields.email } : {}),
+            ...(fields.color !== undefined ? { color: fields.color } : {}),
             ...(fields.phone !== undefined ? { phone: fields.phone || null } : {}),
             ...(fields.status !== undefined ? { status: fields.status } : {}),
             version: { increment: 1 },
@@ -111,6 +118,14 @@ export class ConsultantsService {
     });
     return { data: consultant };
   }
+}
+
+function getDefaultConsultantColor(seed: string) {
+  let hash = 0;
+  for (const character of seed) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+  return consultantColorPalette[hash % consultantColorPalette.length] ?? consultantColorPalette[0];
 }
 
 function toSummary(consultant: { _count: { clients: number; missions: number }; [key: string]: unknown }) {

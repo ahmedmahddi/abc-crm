@@ -13,3 +13,16 @@ export const brandColors = {
   warning: "#C48A1A",
   danger: "#C44545",
 } as const;
+
+export const consultantColorPalette = [
+  "#125885",
+  "#1F7A5A",
+  "#C48A1A",
+  "#0E476C",
+  "#7A868F",
+  "#C44545",
+  "#2F6F8F",
+  "#5F6B7A",
+] as const;
+
+export type ConsultantColor = (typeof consultantColorPalette)[number];

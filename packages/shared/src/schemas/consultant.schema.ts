@@ -1,9 +1,13 @@
 import { z } from "zod";
+import { consultantColorPalette } from "../brand";
+
+const consultantColorSchema = z.enum(consultantColorPalette);
 
 export const consultantCreateSchema = z.object({
   fullName: z.string().min(2),
   phone: z.string().min(4).optional().or(z.literal("")),
   email: z.string().email(),
+  color: consultantColorSchema.optional(),
   status: z.enum(["ACTIVE", "INACTIVE", "ARCHIVED"]).default("ACTIVE"),
 });
 

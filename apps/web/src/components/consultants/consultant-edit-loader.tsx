@@ -1,11 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { ConsultantColor } from "@abc/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
 import { ConsultantEditForm } from "./consultant-edit-form";
 
-type Consultant = { id: string; fullName: string; email: string; phone?: string; status: "ACTIVE" | "INACTIVE" | "ARCHIVED"; version: number };
+type Consultant = { id: string; color?: ConsultantColor; fullName: string; email: string; phone?: string; status: "ACTIVE" | "INACTIVE" | "ARCHIVED"; version: number };
 
 export function ConsultantEditLoader({ id }: Readonly<{ id: string }>) {
   const query = useQuery({ queryKey: ["consultants", id], queryFn: () => apiFetch<{ data: Consultant }>(`/consultants/${id}`) });
