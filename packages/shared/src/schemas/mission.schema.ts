@@ -60,9 +60,16 @@ export const missionCalendarQuerySchema = z.object({
   to: z.coerce.date(),
 });
 
+export const missionCancelSchema = z.object({
+  cancellationType: z.enum(["CLIENT", "INTERNAL"]),
+  cancellationReason: z.string().trim().max(500).optional().or(z.literal("")),
+  version: z.coerce.number().int().positive(),
+});
+
 export type MissionCreateInput = z.infer<typeof missionCreateSchema>;
 export type MissionUpdateInput = z.infer<typeof missionUpdateSchema>;
 export type MissionListQuery = z.infer<typeof missionListQuerySchema>;
+export type MissionCancelInput = z.infer<typeof missionCancelSchema>;
 
 function validateMissionAssignments(
   value: {

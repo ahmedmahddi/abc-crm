@@ -2,9 +2,11 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma } from "@abc/db";
 import {
   missionCalendarQuerySchema,
+  missionCancelSchema,
   missionCreateSchema,
   missionListQuerySchema,
   missionUpdateSchema,
+  type MissionCancelInput,
   type MissionCreateInput,
   type MissionUpdateInput,
 } from "@abc/shared";
@@ -61,7 +63,10 @@ export class MissionsService {
     const missions = await this.prisma.mission.findMany({
       where: {
         archivedAt: null,
-        status: "PLANNED",
+        OR: [
+          { status: "PLANNED" },
+          { status: "CANCELLED", cancellationType: "CLIENT" },
+        ],
         startDateTime: { lt: to },
         endDateTime: { gt: from },
       },
@@ -156,13 +161,47 @@ export class MissionsService {
     }
   }
 
+  async cancel(id: string, body: unknown, userId: string) {
+    const input = parseInput(missionCancelSchema, body);
+    const mission = await this.prisma.$transaction(async (transaction) => {
+      const current = await transaction.mission.findUnique({ where: { id } });
+      if (!current || current.archivedAt) throw new NotFoundException("Mission introuvable");
+      if (current.version !== input.version) {
+        throw new ConflictException("La mission a ete modifiee depuis votre derniere consultation");
+      }
+
+      const updated = await transaction.mission.update({
+        where: { id },
+        data: toMissionCancelData(input),
+        include: missionInclude,
+      });
+      await transaction.activityLog.create({
+        data: {
+          userId,
+          action: input.cancellationType === "CLIENT" ? "MISSION_CANCELLED_CLIENT" : "MISSION_CANCELLED_INTERNAL",
+          entityType: "MISSION",
+          entityId: id,
+          description: input.cancellationReason?.trim() || null,
+        },
+      });
+      return updated;
+    });
+    return { data: toMissionDetail(mission) };
+  }
+
   async archive(id: string, userId: string) {
     const mission = await this.prisma.$transaction(async (transaction) => {
       const current = await transaction.mission.findUnique({ where: { id } });
       if (!current || current.archivedAt) throw new NotFoundException("Mission introuvable");
       const updated = await transaction.mission.update({
         where: { id },
-        data: { archivedAt: new Date(), status: "CANCELLED", version: { increment: 1 } },
+        data: {
+          archivedAt: new Date(),
+          cancelledAt: new Date(),
+          cancellationType: "INTERNAL",
+          status: "CANCELLED",
+          version: { increment: 1 },
+        },
         include: missionInclude,
       });
       await transaction.activityLog.create({
@@ -242,6 +281,18 @@ function toMissionUpdateData(fields: MissionUpdateFields): Prisma.MissionUpdateI
     ...(fields.location !== undefined ? { location: fields.location || null } : {}),
     ...(fields.description !== undefined ? { description: fields.description || null } : {}),
     ...(fields.status !== undefined ? { status: fields.status } : {}),
+  };
+}
+
+function toMissionCancelData(input: MissionCancelInput): Prisma.MissionUpdateInput {
+  const cancellationReason = input.cancellationReason?.trim();
+  return {
+    archivedAt: input.cancellationType === "INTERNAL" ? new Date() : null,
+    cancelledAt: new Date(),
+    cancellationReason: cancellationReason && cancellationReason.length > 0 ? cancellationReason : null,
+    cancellationType: input.cancellationType,
+    status: "CANCELLED",
+    version: { increment: 1 },
   };
 }
 

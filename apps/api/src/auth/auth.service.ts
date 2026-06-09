@@ -198,7 +198,7 @@ export class AuthService {
   private signAccessToken(payload: AccessTokenPayload) {
     return this.jwt.signAsync(payload, {
       secret: getRequiredSecret("JWT_ACCESS_SECRET"),
-      expiresIn: (process.env.ACCESS_TOKEN_TTL ?? "15m") as NonNullable<
+      expiresIn: (process.env.ACCESS_TOKEN_TTL ?? "6d") as NonNullable<
         JwtSignOptions["expiresIn"]
       >,
     });
@@ -277,7 +277,7 @@ function hashToken(token: string) {
 }
 
 function createRefreshExpiry() {
-  const refreshTokenTtlDays = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? "30");
+  const refreshTokenTtlDays = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? "6");
   return new Date(Date.now() + refreshTokenTtlDays * 24 * 60 * 60 * 1000);
 }
 

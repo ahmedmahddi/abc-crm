@@ -16,8 +16,8 @@ import { LoginDto } from "./dto/login.dto";
 import { CsrfGuard } from "./guards/csrf.guard";
 import { JwtAuthGuard, type AuthenticatedRequest } from "./guards/jwt-auth.guard";
 
-const DEFAULT_ACCESS_TOKEN_TTL = "15m";
-const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
+const DEFAULT_ACCESS_TOKEN_TTL = "6d";
+const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 6;
 
 @Controller("auth")
 export class AuthController {

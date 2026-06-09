@@ -51,6 +51,9 @@ type Mission = {
   startDateTime: string;
   endDateTime: string;
   location: string | null;
+  status: "PLANNED" | "DONE" | "CANCELLED";
+  cancellationType: "CLIENT" | "INTERNAL" | null;
+  cancellationReason: string | null;
   version: number;
   client: { id: string; companyName: string; color: string | null };
   consultants: { id: string; fullName: string; role: "RESPONSABLE" | "PARTICIPANT" }[];
@@ -169,14 +172,15 @@ export function CalendarWorkspace() {
     },
   });
   const calendarEvents = visibleMissions.map((mission) => {
-    const mode = MISSION_MODE_DETAILS[mission.missionMode];
+    const tone = getMissionCalendarTone(mission);
     return {
       id: mission.id,
       title: mission.client.companyName,
       start: mission.startDateTime,
       end: mission.endDateTime,
-      backgroundColor: mode.eventBackground,
-      borderColor: mode.eventBorder,
+      backgroundColor: tone.eventBackground,
+      borderColor: tone.eventBorder,
+      editable: mission.status !== "CANCELLED",
       extendedProps: { mission },
     };
   });
@@ -548,14 +552,17 @@ function MobileMonthGrid({
               <span className="font-semibold">{format(date, "d")}</span>
               {dayMissions.length > 0 ? (
                 <span className="mt-1 flex flex-col gap-0.5">
-                  {dayMissions.slice(0, 2).map((mission) => (
-                    <span
-                      className={`truncate rounded border px-1 py-0.5 text-[0.56rem] leading-none ${MISSION_TYPE_DETAILS[mission.missionType].className}`}
-                      key={mission.id}
-                    >
-                      {MISSION_TYPE_DETAILS[mission.missionType].shortLabel}
-                    </span>
-                  ))}
+                  {dayMissions.slice(0, 2).map((mission) => {
+                    const cancelledByClient = isClientCancelledMission(mission);
+                    return (
+                      <span
+                        className={`truncate rounded border px-1 py-0.5 text-[0.56rem] leading-none ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : MISSION_TYPE_DETAILS[mission.missionType].className}`}
+                        key={mission.id}
+                      >
+                        {cancelledByClient ? "Annul." : MISSION_TYPE_DETAILS[mission.missionType].shortLabel}
+                      </span>
+                    );
+                  })}
                   {dayMissions.length > 2 ? <span className="text-[0.56rem] text-muted-foreground">+{dayMissions.length - 2}</span> : null}
                 </span>
               ) : null}
@@ -589,15 +596,19 @@ function CalendarEvent({
 }: Readonly<{ isMonthView: boolean; mission: Mission; timeText: string }>) {
   const mode = MISSION_MODE_DETAILS[mission.missionMode];
   const type = MISSION_TYPE_DETAILS[mission.missionType];
+  const tone = getMissionCalendarTone(mission);
+  const cancelledByClient = isClientCancelledMission(mission);
   if (isMonthView) {
     return (
       <div
-        aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}`}
+        aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
         className="flex min-w-0 items-center gap-1 border-l-2 px-1 py-0.5 text-[0.68rem] leading-tight"
-        style={mission.client.color ? { borderLeftColor: mission.client.color } : undefined}
+        style={{ borderLeftColor: tone.eventBorder }}
       >
         <span className="shrink-0 font-semibold">{timeText}</span>
-        <span className={`shrink-0 rounded border px-1 text-[0.6rem] ${type.className}`}>{type.shortLabel}</span>
+        <span className={`shrink-0 rounded border px-1 text-[0.6rem] ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : type.className}`}>
+          {cancelledByClient ? "Annul." : type.shortLabel}
+        </span>
         <span className="min-w-0 truncate font-medium">{mission.client.companyName}</span>
       </div>
     );
@@ -605,16 +616,16 @@ function CalendarEvent({
 
   return (
     <div
-      aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}`}
+      aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
       className="flex h-full min-w-0 flex-col justify-start overflow-hidden border-l-4 px-1 py-0.5 text-[0.68rem] leading-tight"
-      style={mission.client.color ? { borderLeftColor: mission.client.color } : undefined}
+      style={{ borderLeftColor: tone.eventBorder }}
     >
       <p className="truncate font-semibold">
         <span>{timeText}</span>
         <span className="font-medium"> · {mission.client.companyName}</span>
       </p>
       <p className="truncate text-abcNeutral-700">
-        {type.shortLabel} · {mode.label}
+        {cancelledByClient ? "Annulee client" : type.shortLabel} · {mode.label}
         {mission.title ? ` · ${mission.title}` : ""}
       </p>
     </div>
@@ -624,13 +635,15 @@ function CalendarEvent({
 function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
   const mode = MISSION_MODE_DETAILS[mission.missionMode];
   const type = MISSION_TYPE_DETAILS[mission.missionType];
+  const tone = getMissionCalendarTone(mission);
+  const cancelledByClient = isClientCancelledMission(mission);
   return (
     <Link
       className="border-l-4 border-brand-500 px-3 py-3 text-sm shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       href={`/missions/${mission.id}`}
       style={{
-        backgroundColor: mode.eventBackground,
-        borderLeftColor: mission.client.color ?? mode.eventBorder,
+        backgroundColor: tone.eventBackground,
+        borderLeftColor: tone.eventBorder,
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -638,8 +651,8 @@ function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
           {formatMissionWindow(mission)}
         </p>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className={`rounded border px-2 py-0.5 text-xs font-medium ${type.className}`}>
-            {type.label}
+          <span className={`rounded border px-2 py-0.5 text-xs font-medium ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : type.className}`}>
+            {cancelledByClient ? "Annulee client" : type.label}
           </span>
           <span className={`rounded border px-2 py-0.5 text-xs font-medium ${mode.badgeClassName}`}>
             {mode.label}
@@ -651,6 +664,11 @@ function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
         {type.label} · {mission.title} ·{" "}
         {mission.consultants.map((consultant) => consultant.fullName).join(", ")}
       </p>
+      {cancelledByClient && mission.cancellationReason ? (
+        <p className="mt-2 border-l-2 border-danger pl-2 text-xs text-danger">
+          {mission.cancellationReason}
+        </p>
+      ) : null}
       <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
         {mission.missionMode === "ONLINE" ? (
           <Wifi className="size-3.5" aria-hidden="true" />
@@ -718,8 +736,30 @@ function formatMissionWindow(mission: Mission) {
 function formatDayMissionSummary(missions: Mission[]) {
   if (missions.length === 0) return "aucune mission";
   return missions
-    .map((mission) => `${MISSION_TYPE_DETAILS[mission.missionType].label}: ${mission.client.companyName}`)
+    .map((mission) =>
+      isClientCancelledMission(mission)
+        ? `Annulation client: ${mission.client.companyName}`
+        : `${MISSION_TYPE_DETAILS[mission.missionType].label}: ${mission.client.companyName}`,
+    )
     .join(", ");
+}
+
+function isClientCancelledMission(mission: Mission) {
+  return mission.status === "CANCELLED" && mission.cancellationType === "CLIENT";
+}
+
+function getMissionCalendarTone(mission: Mission) {
+  if (isClientCancelledMission(mission)) {
+    return {
+      eventBackground: "hsl(var(--danger) / 0.10)",
+      eventBorder: "hsl(var(--danger))",
+    };
+  }
+  const mode = MISSION_MODE_DETAILS[mission.missionMode];
+  return {
+    eventBackground: mode.eventBackground,
+    eventBorder: mission.client.color ?? mode.eventBorder,
+  };
 }
 
 function getMobileRange(date: Date, view: MobileCalendarView): CalendarRange {

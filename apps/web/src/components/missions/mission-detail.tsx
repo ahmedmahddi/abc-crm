@@ -35,6 +35,9 @@ type MissionDetailResponse = {
     endDateTime: string;
     location: string | null;
     status: "PLANNED" | "DONE" | "CANCELLED";
+    cancellationType: "CLIENT" | "INTERNAL" | null;
+    cancellationReason: string | null;
+    cancelledAt: string | null;
     version: number;
     client: { id: string; companyName: string };
     consultants: {
@@ -59,18 +62,25 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
     queryFn: () => apiFetch<MissionDetailResponse>(`/missions/${missionId}`),
   });
   const cancelMutation = useMutation({
-    mutationFn: (): Promise<Record<string, unknown> | QueuedOfflineResult> => {
+    mutationFn: (payload: {
+      cancellationType: "CLIENT" | "INTERNAL";
+      cancellationReason: string;
+      version: number;
+    }): Promise<Record<string, unknown> | QueuedOfflineResult> => {
       if (shouldQueueOffline()) {
         return enqueueOfflineMutation({
           baseVersion: query.data?.data.version,
           entityId: missionId,
           entityType: "MISSION",
           operation: "ARCHIVE",
-          payload: { version: query.data?.data.version },
+          payload,
         });
       }
 
-      return apiFetch<Record<string, unknown>>(`/missions/${missionId}/archive`, { method: "POST" });
+      return apiFetch<Record<string, unknown>>(`/missions/${missionId}/cancel`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["missions"] });
@@ -110,7 +120,8 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
             {mission.status !== "CANCELLED" ? (
               <CancelMissionDialog
                 isPending={cancelMutation.isPending}
-                onConfirm={() => cancelMutation.mutate()}
+                missionVersion={mission.version}
+                onConfirm={(payload) => cancelMutation.mutate(payload)}
               />
             ) : null}
           </div>
@@ -153,6 +164,16 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
           {mission.description ? (
             <p className="border-t pt-4 text-muted-foreground">{mission.description}</p>
           ) : null}
+          {mission.status === "CANCELLED" ? (
+            <div className="border-t pt-4">
+              <p className="font-medium text-danger">
+                Annulation {mission.cancellationType === "CLIENT" ? "cote client" : "interne"}
+              </p>
+              {mission.cancellationReason ? (
+                <p className="mt-1 text-muted-foreground">{mission.cancellationReason}</p>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
       <Card>
@@ -183,8 +204,19 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
 
 function CancelMissionDialog({
   isPending,
+  missionVersion,
   onConfirm,
-}: Readonly<{ isPending: boolean; onConfirm: () => void }>) {
+}: Readonly<{
+  isPending: boolean;
+  missionVersion: number;
+  onConfirm: (payload: {
+    cancellationType: "CLIENT" | "INTERNAL";
+    cancellationReason: string;
+    version: number;
+  }) => void;
+}>) {
+  const [cancellationType, setCancellationType] = useState<"CLIENT" | "INTERNAL">("CLIENT");
+  const [cancellationReason, setCancellationReason] = useState("");
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -197,20 +229,51 @@ function CancelMissionDialog({
         <DialogHeader>
           <DialogTitle>Annuler cette mission ?</DialogTitle>
           <DialogDescription>
-            La mission restera consultable dans l'historique et ne sera plus consideree comme
-            planifiee.
+            Une annulation cote client reste visible en rouge dans le calendrier. Une annulation
+            interne est retiree du planning.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Retour</Button>
-          </DialogClose>
-          <DialogClose asChild>
-            <Button disabled={isPending} onClick={onConfirm} variant="danger">
-              {isPending ? "Annulation..." : "Confirmer l'annulation"}
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onConfirm({ cancellationType, cancellationReason, version: missionVersion });
+          }}
+        >
+          <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="cancellationType">
+            Type d'annulation
+            <select
+              className="h-11 rounded-md border bg-white px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              id="cancellationType"
+              onChange={(event) => setCancellationType(event.target.value as "CLIENT" | "INTERNAL")}
+              value={cancellationType}
+            >
+              <option value="CLIENT">Cote client - conserver en rouge dans le calendrier</option>
+              <option value="INTERNAL">Interne - retirer du calendrier</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="cancellationReason">
+            Motif ou precision
+            <textarea
+              className="min-h-24 rounded-md border bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              id="cancellationReason"
+              maxLength={500}
+              onChange={(event) => setCancellationReason(event.target.value)}
+              placeholder="Ex. client indisponible, report demande, conflit interne de planning..."
+              value={cancellationReason}
+            />
+          </label>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Retour</Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button disabled={isPending} type="submit" variant="danger">
+                {isPending ? "Annulation..." : "Confirmer l'annulation"}
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

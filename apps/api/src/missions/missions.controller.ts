@@ -39,6 +39,13 @@ export class MissionsController {
     return this.service.update(id, body, request.user.id);
   }
 
+  @Post(":id/cancel")
+  @Roles("ADMIN", "RESPONSABLE")
+  @UseGuards(CsrfGuard, RolesGuard)
+  cancel(@Param("id") id: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
+    return this.service.cancel(id, body, request.user.id);
+  }
+
   @Post(":id/archive")
   @Roles("ADMIN", "RESPONSABLE")
   @UseGuards(CsrfGuard, RolesGuard)

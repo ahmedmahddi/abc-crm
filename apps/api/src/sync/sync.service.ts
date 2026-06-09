@@ -119,7 +119,9 @@ export class SyncService {
           : mutation.operation === "UPDATE" && mutation.entityId
             ? await this.missions.update(mutation.entityId, mutation.payload, userId)
             : mutation.operation === "ARCHIVE" && mutation.entityId
-              ? await this.missions.archive(mutation.entityId, userId)
+              ? hasCancellationPayload(mutation.payload)
+                ? await this.missions.cancel(mutation.entityId, mutation.payload, userId)
+                : await this.missions.archive(mutation.entityId, userId)
               : rejectUnsupported(),
       );
     }
@@ -163,6 +165,15 @@ function unwrap(value: { data: unknown } | undefined): Record<string, unknown> {
 
 function rejectUnsupported(): never {
   throw new Error("Operation de synchronisation non supportee pour cette entite.");
+}
+
+function hasCancellationPayload(payload: unknown) {
+  return (
+    payload !== null &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    "cancellationType" in payload
+  );
 }
 
 function readVersion(payload: Record<string, unknown>) {
