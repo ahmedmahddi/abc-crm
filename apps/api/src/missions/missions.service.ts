@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@abc/db";
 import {
   missionCalendarQuerySchema,
@@ -16,6 +16,8 @@ import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class MissionsService {
+  private readonly logger = new Logger(MissionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
@@ -112,7 +114,7 @@ export class MissionsService {
 
         return created;
       });
-      void this.notifyMissionUsers(mission, "Nouvelle mission", `${mission.client.companyName} - ${mission.title}`);
+      await this.notifyMissionUsers(mission, "Nouvelle mission", `${mission.client.companyName} - ${mission.title}`);
       return { data: toMissionDetail(mission) };
     } catch (error) {
       handleKnownDatabaseError(error);
@@ -160,7 +162,7 @@ export class MissionsService {
         });
         return updated;
       });
-      void this.notifyMissionUsers(mission, "Mission modifiee", `${mission.client.companyName} - ${mission.title}`);
+      await this.notifyMissionUsers(mission, "Mission modifiee", `${mission.client.companyName} - ${mission.title}`);
       return { data: toMissionDetail(mission) };
     } catch (error) {
       handleKnownDatabaseError(error);
@@ -192,7 +194,7 @@ export class MissionsService {
       });
       return updated;
     });
-    void this.notifyMissionUsers(
+    await this.notifyMissionUsers(
       mission,
       input.cancellationType === "CLIENT" ? "Mission annulee cote client" : "Mission annulee en interne",
       `${mission.client.companyName} - ${mission.title}`,
@@ -227,12 +229,17 @@ export class MissionsService {
     const userIds = mission.consultants
       .map(({ consultant }) => consultant.userId)
       .filter((userId): userId is string => Boolean(userId));
-    await this.notifications.sendToUsers(userIds, {
+    const result = await this.notifications.sendToUsers(userIds, {
       title,
       body,
       url: `/missions/${mission.id}`,
       tag: `mission-${mission.id}`,
     });
+    if (result.data.sent === 0) {
+      this.logger.warn(
+        `No mission push notifications sent for mission ${mission.id}; recipients=${userIds.length}; skipped=${result.data.skipped}`,
+      );
+    }
   }
 }
 
