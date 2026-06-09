@@ -11,6 +11,8 @@ coverage/
 **/coverage/
 .turbo/
 **/*.tsbuildinfo
+apps/web/public/sw.js
+apps/web/public/swe-worker-*.js
 
 # local env and secrets
 .env
