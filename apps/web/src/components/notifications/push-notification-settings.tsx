@@ -13,6 +13,7 @@ export function PushNotificationSettings() {
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [isConfigLoaded, setIsConfigLoaded] = useState(false);
   const [serverEnabled, setServerEnabled] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -21,7 +22,10 @@ export function PushNotificationSettings() {
   useEffect(() => {
     const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     setIsSupported(supported);
-    if (!supported) return;
+    if (!supported) {
+      setIsConfigLoaded(true);
+      return;
+    }
 
     void apiFetch<PublicKeyResponse>("/notifications/push/public-key")
       .then(async (response) => {
@@ -32,6 +36,10 @@ export function PushNotificationSettings() {
       })
       .catch(() => {
         setServerEnabled(false);
+        setPublicKey(null);
+      })
+      .finally(() => {
+        setIsConfigLoaded(true);
       });
   }, []);
 
@@ -137,7 +145,12 @@ export function PushNotificationSettings() {
             Ce navigateur ne supporte pas les notifications push PWA.
           </p>
         ) : null}
-        {isSupported && !serverEnabled ? (
+        {isSupported && !isConfigLoaded ? (
+          <p className="rounded-md border bg-white px-3 py-2 text-sm text-muted-foreground" role="status">
+            Verification de la configuration des notifications...
+          </p>
+        ) : null}
+        {isSupported && isConfigLoaded && !serverEnabled ? (
           <p className="rounded-md border border-warning/30 bg-white px-3 py-2 text-sm text-muted-foreground" role="status">
             Les cles VAPID doivent etre configurees avant activation.
           </p>
@@ -150,7 +163,7 @@ export function PushNotificationSettings() {
               Desactiver sur cet appareil
             </Button>
           ) : (
-            <Button disabled={isPending || !isSupported || !serverEnabled} onClick={() => void enable()} type="button">
+            <Button disabled={isPending || !isSupported || !isConfigLoaded || !serverEnabled} onClick={() => void enable()} type="button">
               Activer sur cet appareil
             </Button>
           )}
