@@ -6,6 +6,7 @@ export * from "./schemas/client.schema";
 export * from "./schemas/consultant.schema";
 export * from "./schemas/mission.schema";
 export * from "./schemas/ordre-mission.schema";
+export * from "./schemas/push-notification.schema";
 export * from "./schemas/sync.schema";
 export * from "./schemas/template.schema";
 export * from "./schemas/user.schema";

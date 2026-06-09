@@ -47,3 +47,32 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+self.addEventListener("push", (event) => {
+  const payload = parsePushPayload(event);
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      data: { url: payload.url ?? "/" },
+      icon: "/brand/logo-fb.png",
+      badge: "/brand/logo-fb.png",
+      tag: payload.tag,
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = typeof event.notification.data?.url === "string" ? event.notification.data.url : "/";
+  event.waitUntil(self.clients.openWindow(url));
+});
+
+function parsePushPayload(event: PushEvent) {
+  const fallback = { title: "ABC CRM", body: "Nouvelle notification", url: "/", tag: "abc-crm" };
+  if (!event.data) return fallback;
+  try {
+    return { ...fallback, ...event.data.json() } as typeof fallback;
+  } catch {
+    return { ...fallback, body: event.data.text() };
+  }
+}

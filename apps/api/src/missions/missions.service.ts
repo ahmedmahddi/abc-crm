@@ -11,11 +11,15 @@ import {
   type MissionUpdateInput,
 } from "@abc/shared";
 import { z } from "zod";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class MissionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findMany(query: unknown) {
     const { page, perPage, q, status, clientId, consultantId, from, to } = parseInput(
@@ -108,6 +112,7 @@ export class MissionsService {
 
         return created;
       });
+      void this.notifyMissionUsers(mission, "Nouvelle mission", `${mission.client.companyName} - ${mission.title}`);
       return { data: toMissionDetail(mission) };
     } catch (error) {
       handleKnownDatabaseError(error);
@@ -155,6 +160,7 @@ export class MissionsService {
         });
         return updated;
       });
+      void this.notifyMissionUsers(mission, "Mission modifiee", `${mission.client.companyName} - ${mission.title}`);
       return { data: toMissionDetail(mission) };
     } catch (error) {
       handleKnownDatabaseError(error);
@@ -186,6 +192,11 @@ export class MissionsService {
       });
       return updated;
     });
+    void this.notifyMissionUsers(
+      mission,
+      input.cancellationType === "CLIENT" ? "Mission annulee cote client" : "Mission annulee en interne",
+      `${mission.client.companyName} - ${mission.title}`,
+    );
     return { data: toMissionDetail(mission) };
   }
 
@@ -211,12 +222,24 @@ export class MissionsService {
     });
     return { data: toMissionDetail(mission) };
   }
+
+  private async notifyMissionUsers(mission: MissionWithRelations, title: string, body: string) {
+    const userIds = mission.consultants
+      .map(({ consultant }) => consultant.userId)
+      .filter((userId): userId is string => Boolean(userId));
+    await this.notifications.sendToUsers(userIds, {
+      title,
+      body,
+      url: `/missions/${mission.id}`,
+      tag: `mission-${mission.id}`,
+    });
+  }
 }
 
 const missionInclude = {
   client: { select: { id: true, companyName: true, color: true, status: true } },
   consultants: {
-    include: { consultant: { select: { id: true, fullName: true, email: true, status: true } } },
+    include: { consultant: { select: { id: true, fullName: true, email: true, status: true, userId: true } } },
   },
 } satisfies Prisma.MissionInclude;
 

@@ -6,6 +6,7 @@ import { ConsultantsModule } from "./consultants/consultants.module";
 import { FilesModule } from "./files/files.module";
 import { HealthModule } from "./health/health.module";
 import { MissionsModule } from "./missions/missions.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SyncModule } from "./sync/sync.module";
 import { UsersModule } from "./users/users.module";
@@ -20,6 +21,7 @@ import { UsersModule } from "./users/users.module";
     ConsultantsModule,
     FilesModule,
     MissionsModule,
+    NotificationsModule,
     SyncModule,
     UsersModule,
   ],

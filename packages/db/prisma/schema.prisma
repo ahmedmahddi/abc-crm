@@ -127,6 +127,7 @@ model User {
   uploadedFiles   File[]               @relation("UploadedFiles")
   activityLogs    ActivityLog[]
   syncMutations   SyncMutation[]
+  pushSubscriptions PushSubscription[]
   consultant      Consultant?
 }
 
@@ -421,4 +422,20 @@ model SyncConflict {
 
   @@index([userId, resolvedAt])
   @@index([entityType, entityId])
+}
+
+model PushSubscription {
+  id          String    @id @default(uuid())
+  userId      String
+  endpoint    String    @unique
+  p256dh      String
+  auth        String
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  lastSeenAt   DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { RefreshCw, UserCog, UserRoundCog } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader, PagePanel, PageStack } from "@/components/layout/page-section";
+import { PushNotificationSettings } from "@/components/notifications/push-notification-settings";
 import { useAuth } from "@/components/providers/auth-provider";
 
 const sections = [
@@ -37,6 +38,7 @@ export default function MorePage() {
             </Link>
           ))}
         </PagePanel>
+        <PushNotificationSettings />
       </PageStack>
     </AppShell>
   );
