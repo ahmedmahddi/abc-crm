@@ -24,7 +24,7 @@ export function AuthShell({ children, description, eyebrow, title }: Readonly<Au
           <div className="absolute bottom-10 right-8 h-72 w-72 rounded-full bg-brand-700 blur-3xl" />
         </div>
         <Link className="relative w-fit rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-100 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-900" href="/login">
-          <Image src="/brand/abc-logo.webp" alt="ABC Consulting" width={180} height={68} priority />
+          <Image src="/brand/abc-logo.webp" alt="ABC Consulting" width={180} height={68} priority style={{ height: "auto" }} />
         </Link>
         <div className="relative max-w-xl">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-200">Bureau d'etude</p>
@@ -44,7 +44,7 @@ export function AuthShell({ children, description, eyebrow, title }: Readonly<Au
       <section className="flex items-center justify-center px-5 py-10 sm:px-8">
         <div className="w-full max-w-sm">
           <Link className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" href="/login">
-            <Image src="/brand/abc-logo.webp" alt="ABC Consulting" width={158} height={58} priority />
+            <Image src="/brand/abc-logo.webp" alt="ABC Consulting" width={158} height={58} priority style={{ height: "auto" }} />
           </Link>
           <div className="mt-10">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{eyebrow}</p>
