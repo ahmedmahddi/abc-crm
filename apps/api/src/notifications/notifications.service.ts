@@ -64,6 +64,8 @@ export class NotificationsService {
       where: { userId: { in: [...new Set(userIds)] }, revokedAt: null },
     });
     let sent = 0;
+    let failed = 0;
+    let revoked = 0;
 
     await Promise.all(
       subscriptions.map(async (subscription) => {
@@ -77,17 +79,19 @@ export class NotificationsService {
           );
           sent += 1;
         } catch (error) {
+          failed += 1;
           if (isExpiredSubscription(error)) {
             await this.prisma.pushSubscription.update({
               where: { id: subscription.id },
               data: { revokedAt: new Date() },
             });
+            revoked += 1;
           }
         }
       }),
     );
 
-    return { data: { sent, skipped: false } };
+    return { data: { failed, revoked, sent, skipped: false } };
   }
 }
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, CalendarClock, MapPin, UsersRound, Wifi } from "lucide-react";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -56,6 +57,7 @@ const formatDateTime = new Intl.DateTimeFormat("fr-FR", {
 
 export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["missions", missionId],
@@ -82,9 +84,12 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, payload) => {
       await queryClient.invalidateQueries({ queryKey: ["missions"] });
       if (isQueuedOfflineResult(result)) setQueuedMessage("Annulation ajoutee au centre de synchronisation.");
+      if (!isQueuedOfflineResult(result) && payload.cancellationType === "INTERNAL") {
+        router.push("/calendar");
+      }
     },
   });
 
@@ -267,11 +272,9 @@ function CancelMissionDialog({
             <DialogClose asChild>
               <Button variant="outline">Retour</Button>
             </DialogClose>
-            <DialogClose asChild>
-              <Button disabled={isPending} type="submit" variant="danger">
-                {isPending ? "Annulation..." : "Confirmer l'annulation"}
-              </Button>
-            </DialogClose>
+            <Button disabled={isPending} type="submit" variant="danger">
+              {isPending ? "Annulation..." : "Confirmer l'annulation"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

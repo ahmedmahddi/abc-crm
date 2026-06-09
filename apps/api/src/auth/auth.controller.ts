@@ -28,7 +28,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
     const result = await this.authService.login(dto);
     setAuthCookies(response, result);
-    return { data: { user: result.user } };
+    return { data: { csrfToken: result.csrfToken, user: result.user } };
   }
 
   @Post("password-reset/request")
@@ -51,7 +51,7 @@ export class AuthController {
     if (!refreshToken) throw new UnauthorizedException("Refresh token manquant");
     const result = await this.authService.refresh(refreshToken);
     setAuthCookies(response, result);
-    return { data: { user: result.user } };
+    return { data: { csrfToken: result.csrfToken, user: result.user } };
   }
 
   @UseGuards(JwtAuthGuard, CsrfGuard)

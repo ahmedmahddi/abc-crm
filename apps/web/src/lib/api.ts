@@ -31,7 +31,9 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
   }
 
   if (!response.ok) await throwApiError(response, "La requete a echoue");
-  return parseSuccess<T>(response);
+  const result = await parseSuccess<T>(response);
+  if (path === "/auth/logout") clearStoredCsrfToken();
+  return result;
 }
 
 export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
@@ -85,14 +87,15 @@ function createApiUrl(path: string) {
 }
 
 function getCsrfHeader() {
-  const csrfToken =
+  const cookieToken =
     typeof document === "undefined"
       ? undefined
       : document.cookie
           .split("; ")
           .find((cookie) => cookie.startsWith("csrf_token="))
           ?.split("=")[1];
-  return csrfToken ? { "x-csrf-token": decodeURIComponent(csrfToken) } : {};
+  const csrfToken = cookieToken ? decodeURIComponent(cookieToken) : getStoredCsrfToken();
+  return csrfToken ? { "x-csrf-token": csrfToken } : {};
 }
 
 function shouldRetryUnauthorized(path: string, init?: ApiFetchInit) {
@@ -112,7 +115,11 @@ async function refreshSession() {
     redirectOnUnauthorized: false,
     retryOnUnauthorized: false,
   })
-    .then((response) => response.ok)
+    .then(async (response) => {
+      if (!response.ok) return false;
+      await parseSuccess(response);
+      return true;
+    })
     .catch(() => false)
     .finally(() => {
       refreshPromise = null;
@@ -136,5 +143,32 @@ async function throwApiError(response: Response, fallback: string): Promise<neve
 
 async function parseSuccess<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const payload = (await response.json()) as T;
+  persistCsrfToken(payload);
+  return payload;
+}
+
+function persistCsrfToken(payload: unknown) {
+  const csrfToken =
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    payload.data &&
+    typeof payload.data === "object" &&
+    "csrfToken" in payload.data &&
+    typeof payload.data.csrfToken === "string"
+      ? payload.data.csrfToken
+      : null;
+  if (!csrfToken || typeof window === "undefined") return;
+  window.sessionStorage.setItem("abc.csrfToken", csrfToken);
+}
+
+function getStoredCsrfToken() {
+  if (typeof window === "undefined") return undefined;
+  return window.sessionStorage.getItem("abc.csrfToken") ?? undefined;
+}
+
+function clearStoredCsrfToken() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem("abc.csrfToken");
 }

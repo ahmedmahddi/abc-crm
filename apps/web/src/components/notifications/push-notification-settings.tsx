@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { apiFetch, ApiError } from "@/lib/api";
 
 type PublicKeyResponse = { data: { enabled: boolean; publicKey: string | null } };
+type PushTestResponse = { data: { failed?: number; sent: number; skipped?: boolean } };
 
 export function PushNotificationSettings() {
   const [isSupported, setIsSupported] = useState(false);
@@ -46,12 +47,18 @@ export function PushNotificationSettings() {
       if (permission !== "granted") throw new Error("Autorisation refusee par le navigateur.");
 
       const registration = await navigator.serviceWorker.ready;
-      const subscription =
-        (await registration.pushManager.getSubscription()) ??
-        (await registration.pushManager.subscribe({
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
-          userVisibleOnly: true,
-        }));
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        await apiFetch("/notifications/push/subscriptions", {
+          method: "DELETE",
+          body: JSON.stringify({ endpoint: existingSubscription.endpoint }),
+        }).catch(() => undefined);
+        await existingSubscription.unsubscribe();
+      }
+      const subscription = await registration.pushManager.subscribe({
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        userVisibleOnly: true,
+      });
 
       await apiFetch("/notifications/push/subscriptions", {
         method: "POST",
@@ -94,8 +101,18 @@ export function PushNotificationSettings() {
     setError(null);
     setMessage(null);
     try {
-      await apiFetch("/notifications/push/test", { method: "POST" });
-      setMessage("Notification de test envoyee.");
+      const response = await apiFetch<PushTestResponse>("/notifications/push/test", { method: "POST" });
+      if (response.data.skipped) {
+        setError("Les notifications push ne sont pas configurees cote serveur.");
+      } else if (response.data.sent > 0) {
+        setMessage("Notification de test envoyee sur cet appareil.");
+      } else {
+        setError(
+          response.data.failed
+            ? "La notification a ete refusee par le service push. Reactivez les notifications sur cet appareil."
+            : "Aucun appareil actif n'a ete trouve pour ce compte. Reactivez les notifications.",
+        );
+      }
     } catch (caught) {
       setError(getErrorMessage(caught, "Impossible d'envoyer la notification de test."));
     } finally {
