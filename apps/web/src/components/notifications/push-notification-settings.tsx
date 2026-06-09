@@ -62,6 +62,7 @@ export function PushNotificationSettings() {
       if (!isSupported) throw new Error("Ce navigateur ne supporte pas les notifications push.");
       if (!serverEnabled || !publicKey) throw new Error("Les cles VAPID ne sont pas configurees cote serveur.");
 
+      if (Notification.permission === "denied") throw new Error(getPermissionBlockedMessage());
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("Autorisation refusee par le navigateur.");
 
@@ -198,11 +199,37 @@ function getCurrentSubscription() {
   return getReadyServiceWorker().then((registration) => registration.pushManager.getSubscription());
 }
 
-function getReadyServiceWorker() {
+async function getReadyServiceWorker() {
+  const existingRegistration = await navigator.serviceWorker.getRegistration("/");
+  if (existingRegistration?.active) return existingRegistration;
+
+  const registration = existingRegistration ?? (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+  if (registration.active) return registration;
+
+  const candidate = registration.installing ?? registration.waiting;
+  if (candidate) {
+    await waitForServiceWorkerActivation(candidate);
+    if (registration.active) return registration;
+  }
+
   return withTimeout(
     navigator.serviceWorker.ready,
-    8000,
-    "Le service worker PWA n'est pas encore pret. Rechargez l'application puis reessayez.",
+    12000,
+    "Le service worker PWA n'est pas pret. Fermez puis rouvrez l'application installee, ou desinstallez/reinstallez la PWA.",
+  );
+}
+
+function waitForServiceWorkerActivation(worker: ServiceWorker) {
+  if (worker.state === "activated") return Promise.resolve();
+  return withTimeout(
+    new Promise<void>((resolve, reject) => {
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "activated") resolve();
+        if (worker.state === "redundant") reject(new Error("Le service worker PWA a ete remplace avant activation."));
+      });
+    }),
+    12000,
+    "Le service worker PWA n'a pas termine son activation. Rechargez l'application puis reessayez.",
   );
 }
 
@@ -220,4 +247,8 @@ function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return fallback;
+}
+
+function getPermissionBlockedMessage() {
+  return "Les notifications sont bloquees dans les parametres du navigateur pour ce site. Autorisez-les dans les parametres du site, puis revenez activer les notifications.";
 }
