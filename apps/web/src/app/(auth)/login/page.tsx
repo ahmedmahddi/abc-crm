@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { loginSchema, type LoginInput } from "@abc/shared";
@@ -11,14 +11,6 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
-
-type AuthUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  sessionId: string;
-};
 
 export default function LoginPage() {
   return (
@@ -29,6 +21,7 @@ export default function LoginPage() {
 }
 
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string>();
   const {
@@ -40,13 +33,10 @@ function LoginContent() {
     setServerError(undefined);
     try {
       await apiFetch("/auth/login", { method: "POST", body: JSON.stringify(values) });
-      await apiFetch<{ data: { user: AuthUser } }>("/auth/me", {
-        redirectOnUnauthorized: false,
-        retryOnUnauthorized: false,
-      });
-      window.location.replace("/");
+      router.push("/");
+      router.refresh();
     } catch {
-      setServerError("Connexion impossible. Verifiez votre email, votre mot de passe et la configuration de session.");
+      setServerError("Connexion impossible. Verifiez votre email et votre mot de passe.");
     }
   });
 
@@ -64,11 +54,6 @@ function LoginContent() {
       {searchParams.get("loggedOut") === "true" ? (
         <p className="mt-6 rounded-md border bg-white px-3 py-2 text-sm text-muted-foreground" role="status">
           Session fermee correctement.
-        </p>
-      ) : null}
-      {searchParams.get("reason") ? (
-        <p className="mt-6 rounded-md border bg-white px-3 py-2 text-sm text-muted-foreground" role="status">
-          Veuillez vous reconnecter pour continuer.
         </p>
       ) : null}
       <form className="mt-8 flex flex-col gap-5" onSubmit={(event) => void submitLogin(event)}>
