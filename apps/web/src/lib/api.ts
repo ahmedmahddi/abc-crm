@@ -26,10 +26,10 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (refreshed) {
       const retryResponse = await request(path, { ...init, retryOnUnauthorized: false });
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401 && init?.redirectOnUnauthorized !== false) redirectToLogin();
+      if (retryResponse.status === 401) clearStoredCsrfToken();
       await throwApiError(retryResponse, "La requete a echoue");
     }
-    if (init?.redirectOnUnauthorized !== false) redirectToLogin();
+    clearStoredCsrfToken();
   }
 
   if (!response.ok) await throwApiError(response, "La requete a echoue");
@@ -45,10 +45,10 @@ export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
     if (refreshed) {
       const retryResponse = await requestUpload(path, body);
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401) redirectToLogin();
+      if (retryResponse.status === 401) clearStoredCsrfToken();
       await throwApiError(retryResponse, "Le transfert a echoue");
     }
-    redirectToLogin();
+    clearStoredCsrfToken();
   }
 
   if (!response.ok) await throwApiError(response, "Le transfert a echoue");
@@ -127,14 +127,6 @@ async function refreshSession() {
       refreshPromise = null;
     });
   return refreshPromise;
-}
-
-function redirectToLogin() {
-  if (typeof window === "undefined") return;
-  clearStoredCsrfToken();
-  if (window.location.pathname !== "/login") {
-    window.location.replace(`/login?reason=auth-required&t=${Date.now()}`);
-  }
 }
 
 async function throwApiError(response: Response, fallback: string): Promise<never> {
