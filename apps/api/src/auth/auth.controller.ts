@@ -31,6 +31,14 @@ export class AuthController {
     return { data: { csrfToken: result.csrfToken, user: result.user } };
   }
 
+  @Get("clear-session")
+  @Post("clear-session")
+  @HttpCode(HttpStatus.OK)
+  clearSession(@Res({ passthrough: true }) response: Response) {
+    clearAuthCookies(response);
+    return { data: { ok: true } };
+  }
+
   @Post("password-reset/request")
   @HttpCode(HttpStatus.OK)
   requestPasswordReset(@Body() body: unknown) {
@@ -75,7 +83,7 @@ function setAuthCookies(
   result: { accessToken: string; refreshToken: string; csrfToken: string },
 ) {
   const secure = process.env.COOKIE_SECURE === "true";
-  const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
+  const sameSite = getSameSite();
   const accessTokenMaxAge = parseDurationMs(process.env.ACCESS_TOKEN_TTL ?? DEFAULT_ACCESS_TOKEN_TTL);
   const refreshTokenMaxAge = getRefreshTokenMaxAgeMs();
   response.cookie("access_token", result.accessToken, cookieOptions(accessTokenMaxAge, secure, sameSite));
@@ -87,13 +95,27 @@ function setAuthCookies(
 }
 
 function clearAuthCookies(response: Response) {
-  response.clearCookie("access_token", { path: "/" });
-  response.clearCookie("refresh_token", { path: "/" });
-  response.clearCookie("csrf_token", { path: "/" });
+  const secure = process.env.COOKIE_SECURE === "true";
+  const sameSite = getSameSite();
+  const options = clearCookieOptions(secure, sameSite);
+  response.clearCookie("access_token", options);
+  response.clearCookie("refresh_token", options);
+  response.clearCookie("csrf_token", options);
+  response.cookie("access_token", "", { ...options, httpOnly: true, maxAge: 0 });
+  response.cookie("refresh_token", "", { ...options, httpOnly: true, maxAge: 0 });
+  response.cookie("csrf_token", "", { ...options, httpOnly: false, maxAge: 0 });
 }
 
 function cookieOptions(maxAge: number, secure: boolean, sameSite: "lax" | "none") {
-  return { httpOnly: true, sameSite, secure, maxAge, path: "/" };
+  return { httpOnly: true, sameSite, secure, maxAge, path: "/" } as const;
+}
+
+function clearCookieOptions(secure: boolean, sameSite: "lax" | "none") {
+  return { path: "/", secure, sameSite } as const;
+}
+
+function getSameSite(): "lax" | "none" {
+  return (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
 }
 
 function getRefreshTokenMaxAgeMs() {
