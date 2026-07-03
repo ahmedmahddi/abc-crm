@@ -1,6 +1,12 @@
 import path from "node:path";
 import withSerwistInit from "@serwist/next";
 
+const noStoreHeaders = [
+  { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+  { key: "Pragma", value: "no-cache" },
+  { key: "Expires", value: "0" },
+];
+
 const withSerwist = withSerwistInit({
   cacheOnNavigation: true,
   disable: process.env.NODE_ENV !== "production",
@@ -15,6 +21,12 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   turbopack: {
     root: path.resolve(import.meta.dirname, "../.."),
+  },
+  async headers() {
+    return ["/login", "/forgot-password", "/reset-password", "/session-expired", "/logged-out"].map((source) => ({
+      source,
+      headers: noStoreHeaders,
+    }));
   },
   async rewrites() {
     const apiUrl = (
