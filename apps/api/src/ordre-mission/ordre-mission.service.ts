@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@abc/db";
 import {
+  getMissionTypeLabel,
   ordreMissionCreateSchema,
   ordreMissionListQuerySchema,
   ordreMissionUpdateSchema,
@@ -153,7 +154,7 @@ export class OrdreMissionService {
       ["Référence", ordre.reference],
       ["Client", ordre.client.companyName],
       ["Objet", ordre.object],
-      ["Type", ordre.missionType],
+      ["Type", getMissionTypeLabel(ordre.missionType, ordre.missionTypeOtherLabel)],
       ["Mode", ordre.missionMode],
       ["Début", formatDateTime(ordre.startDateTime)],
       ["Fin", formatDateTime(ordre.endDateTime)],
@@ -177,7 +178,7 @@ export class OrdreMissionService {
       ["ORDRE DE MISSION", ordre.reference],
       ["Client", ordre.client.companyName],
       ["Objet", ordre.object],
-      ["Type", ordre.missionType],
+      ["Type", getMissionTypeLabel(ordre.missionType, ordre.missionTypeOtherLabel)],
       ["Mode", ordre.missionMode],
       ["Début", formatDateTime(ordre.startDateTime)],
       ["Fin", formatDateTime(ordre.endDateTime)],
@@ -246,7 +247,7 @@ export class OrdreMissionService {
       "{{client.raisonSociale}}": ordre.client.companyName,
       "{{client.adresse}}": ordre.client.address,
       "{{mission.objet}}": ordre.object,
-      "{{mission.type}}": ordre.missionType,
+      "{{mission.type}}": getMissionTypeLabel(ordre.missionType, ordre.missionTypeOtherLabel),
       "{{mission.mode}}": ordre.missionMode,
       "{{mission.debut}}": formatDateTime(ordre.startDateTime),
       "{{mission.fin}}": formatDateTime(ordre.endDateTime),
@@ -280,6 +281,7 @@ function toOrdreMissionCreateData(input: OrdreMissionCreateInput, userId: string
     ...(input.missionId ? { mission: { connect: { id: input.missionId } } } : {}),
     client: { connect: { id: input.clientId } },
     missionType: input.missionType,
+    missionTypeOtherLabel: getMissionTypeOtherLabel(input.missionType, input.missionTypeOtherLabel),
     missionMode: input.missionMode,
     startDateTime: input.startDateTime,
     endDateTime: input.endDateTime,
@@ -299,6 +301,11 @@ function toOrdreMissionUpdateData(fields: OrdreMissionUpdateFields): Prisma.Ordr
     ...(fields.clientId !== undefined ? { client: { connect: { id: fields.clientId } } } : {}),
     ...(fields.missionId !== undefined ? { mission: { connect: { id: fields.missionId } } } : {}),
     ...(fields.missionType !== undefined ? { missionType: fields.missionType } : {}),
+    ...(fields.missionType !== undefined
+      ? { missionTypeOtherLabel: getMissionTypeOtherLabel(fields.missionType, fields.missionTypeOtherLabel) }
+      : fields.missionTypeOtherLabel !== undefined
+        ? { missionTypeOtherLabel: fields.missionTypeOtherLabel.trim() || null }
+        : {}),
     ...(fields.missionMode !== undefined ? { missionMode: fields.missionMode } : {}),
     ...(fields.startDateTime !== undefined ? { startDateTime: fields.startDateTime } : {}),
     ...(fields.endDateTime !== undefined ? { endDateTime: fields.endDateTime } : {}),
@@ -309,6 +316,10 @@ function toOrdreMissionUpdateData(fields: OrdreMissionUpdateFields): Prisma.Ordr
     ...(fields.templateId !== undefined ? { template: { connect: { id: fields.templateId } } } : {}),
     ...(fields.requiresReview !== undefined ? { requiresReview: fields.requiresReview } : {}),
   };
+}
+
+function getMissionTypeOtherLabel(missionType: OrdreMissionCreateInput["missionType"], otherLabel?: string) {
+  return missionType === "AUTRE" ? otherLabel?.trim() || null : null;
 }
 
 function toOrdreMissionSummary(ordre: OrdreMissionWithRelations) {
