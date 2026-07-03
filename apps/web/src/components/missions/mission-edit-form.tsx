@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { missionUpdateSchema, type MissionUpdateInput } from "@abc/shared";
+import { MISSION_TYPE_LABELS, MISSION_TYPES, missionUpdateSchema, type MissionType, type MissionUpdateInput } from "@abc/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -26,7 +26,8 @@ type MissionResponse = {
     client: { id: string };
     consultants: Array<{ id: string; role: "RESPONSABLE" | "PARTICIPANT" }>;
     title: string;
-    missionType: "AUDIT" | "FORMATION" | "ASSISTANCE";
+    missionType: MissionType;
+    missionTypeOtherLabel: string | null;
     missionMode: "ONLINE" | "PRESENTIELLE";
     startDateTime: string;
     endDateTime: string;
@@ -75,6 +76,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
       location: mission.location ?? "",
       missionMode: mission.missionMode,
       missionType: mission.missionType,
+      missionTypeOtherLabel: mission.missionTypeOtherLabel ?? "",
       startDateTime: toDateTimeLocalValue(mission.startDateTime),
       status: mission.status,
       title: mission.title,
@@ -83,6 +85,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
     resolver: zodResolver(missionUpdateSchema),
   });
   const consultantAssignments = form.watch("consultantAssignments") ?? [];
+  const missionType = form.watch("missionType");
   const mutation = useMutation({
     mutationFn: (input: MissionUpdateInput): Promise<Record<string, unknown> | QueuedOfflineResult> => {
       if (shouldQueueOffline()) {
@@ -142,9 +145,11 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
               <Field>
                 <FieldLabel htmlFor="missionType">Type</FieldLabel>
                 <select className="h-11 rounded-md border bg-white px-3 text-sm" id="missionType" {...form.register("missionType")}>
-                  <option value="AUDIT">Audit</option>
-                  <option value="FORMATION">Formation</option>
-                  <option value="ASSISTANCE">Assistance</option>
+                  {MISSION_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {MISSION_TYPE_LABELS[type]}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <Field>
@@ -163,6 +168,13 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
                 </select>
               </Field>
             </div>
+            {missionType === "AUTRE" ? (
+              <Field data-invalid={Boolean(form.formState.errors.missionTypeOtherLabel)}>
+                <FieldLabel htmlFor="missionTypeOtherLabel">Type personnalise *</FieldLabel>
+                <Input id="missionTypeOtherLabel" aria-invalid={Boolean(form.formState.errors.missionTypeOtherLabel)} {...form.register("missionTypeOtherLabel")} />
+                {form.formState.errors.missionTypeOtherLabel ? <FieldError>Precisez le type de mission.</FieldError> : null}
+              </Field>
+            ) : null}
           </FieldGroup>
         </CardContent>
       </Card>
