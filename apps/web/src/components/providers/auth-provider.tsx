@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { UserRole } from "@abc/shared";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type AuthUser = {
   id: string;
@@ -39,12 +39,15 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
 
     setIsPending(true);
-    apiFetch<{ data: { user: AuthUser } }>("/auth/me", { redirectOnUnauthorized: true })
+    apiFetch<{ data: { user: AuthUser } }>("/auth/me", {
+      redirectOnUnauthorized: false,
+      retryOnUnauthorized: true,
+    })
       .then((response) => {
         if (!cancelled) setUser(response.data.user);
       })
-      .catch((error) => {
-        if (!cancelled && !(error instanceof ApiError && error.status === 401)) setUser(null);
+      .catch(() => {
+        if (!cancelled) setUser(null);
       })
       .finally(() => {
         if (!cancelled) setIsPending(false);
@@ -58,10 +61,11 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const logout = useCallback(async () => {
     try {
       await apiFetch("/auth/logout", { method: "POST", redirectOnUnauthorized: false, retryOnUnauthorized: false });
+    } catch {
+      // Continue local logout even if the server session is already expired.
     } finally {
       setUser(null);
-      router.push("/logged-out");
-      router.refresh();
+      router.replace("/login?loggedOut=true");
     }
   }, [router]);
 
