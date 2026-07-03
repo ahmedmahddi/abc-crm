@@ -262,6 +262,7 @@ function toMissionCreateData(
   return {
     title: input.title,
     missionType: input.missionType,
+    missionTypeOtherLabel: getMissionTypeOtherLabel(input.missionType, input.missionTypeOtherLabel),
     missionMode: input.missionMode,
     startDateTime: input.startDateTime,
     endDateTime: input.endDateTime,
@@ -305,6 +306,11 @@ function toMissionUpdateData(fields: MissionUpdateFields): Prisma.MissionUpdateI
     ...(fields.clientId !== undefined ? { client: { connect: { id: fields.clientId } } } : {}),
     ...(fields.title !== undefined ? { title: fields.title } : {}),
     ...(fields.missionType !== undefined ? { missionType: fields.missionType } : {}),
+    ...(fields.missionType !== undefined
+      ? { missionTypeOtherLabel: getMissionTypeOtherLabel(fields.missionType, fields.missionTypeOtherLabel) }
+      : fields.missionTypeOtherLabel !== undefined
+        ? { missionTypeOtherLabel: fields.missionTypeOtherLabel.trim() || null }
+        : {}),
     ...(fields.missionMode !== undefined ? { missionMode: fields.missionMode } : {}),
     ...(fields.startDateTime !== undefined ? { startDateTime: fields.startDateTime } : {}),
     ...(fields.endDateTime !== undefined ? { endDateTime: fields.endDateTime } : {}),
@@ -312,6 +318,10 @@ function toMissionUpdateData(fields: MissionUpdateFields): Prisma.MissionUpdateI
     ...(fields.description !== undefined ? { description: fields.description || null } : {}),
     ...(fields.status !== undefined ? { status: fields.status } : {}),
   };
+}
+
+function getMissionTypeOtherLabel(missionType: MissionCreateInput["missionType"], otherLabel?: string) {
+  return missionType === "AUTRE" ? otherLabel?.trim() || null : null;
 }
 
 function toMissionCancelData(input: MissionCancelInput): Prisma.MissionUpdateInput {
