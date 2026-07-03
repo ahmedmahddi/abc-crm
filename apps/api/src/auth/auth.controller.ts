@@ -83,7 +83,7 @@ function setAuthCookies(
   result: { accessToken: string; refreshToken: string; csrfToken: string },
 ) {
   const secure = process.env.COOKIE_SECURE === "true";
-  const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
+  const sameSite = getSameSite();
   const accessTokenMaxAge = parseDurationMs(process.env.ACCESS_TOKEN_TTL ?? DEFAULT_ACCESS_TOKEN_TTL);
   const refreshTokenMaxAge = getRefreshTokenMaxAgeMs();
   response.cookie("access_token", result.accessToken, cookieOptions(accessTokenMaxAge, secure, sameSite));
@@ -96,8 +96,8 @@ function setAuthCookies(
 
 function clearAuthCookies(response: Response) {
   const secure = process.env.COOKIE_SECURE === "true";
-  const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
-  const options = { path: "/", secure, sameSite };
+  const sameSite = getSameSite();
+  const options = clearCookieOptions(secure, sameSite);
   response.clearCookie("access_token", options);
   response.clearCookie("refresh_token", options);
   response.clearCookie("csrf_token", options);
@@ -107,7 +107,15 @@ function clearAuthCookies(response: Response) {
 }
 
 function cookieOptions(maxAge: number, secure: boolean, sameSite: "lax" | "none") {
-  return { httpOnly: true, sameSite, secure, maxAge, path: "/" };
+  return { httpOnly: true, sameSite, secure, maxAge, path: "/" } as const;
+}
+
+function clearCookieOptions(secure: boolean, sameSite: "lax" | "none") {
+  return { path: "/", secure, sameSite } as const;
+}
+
+function getSameSite(): "lax" | "none" {
+  return (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
 }
 
 function getRefreshTokenMaxAgeMs() {
