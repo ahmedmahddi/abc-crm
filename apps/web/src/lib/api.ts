@@ -1,11 +1,15 @@
 export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || "/api/v1");
 
+const CSRF_STORAGE_KEY = "abc.csrfToken";
+const AUTH_RESET_STORAGE_KEY = "abc.lastAuthReset";
+
 type ApiFetchInit = RequestInit & {
   redirectOnUnauthorized?: boolean;
   retryOnUnauthorized?: boolean;
 };
 
 let refreshPromise: Promise<boolean> | null = null;
+let resetPromise: Promise<void> | null = null;
 
 export class ApiError extends Error {
   constructor(
@@ -24,10 +28,10 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (refreshed) {
       const retryResponse = await request(path, { ...init, retryOnUnauthorized: false });
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401 && init?.redirectOnUnauthorized !== false) redirectToSessionExpired();
+      if (retryResponse.status === 401 && init?.redirectOnUnauthorized !== false) await redirectToLoginAfterSessionReset();
       await throwApiError(retryResponse, "La requete a echoue");
     }
-    if (init?.redirectOnUnauthorized !== false) redirectToSessionExpired();
+    if (init?.redirectOnUnauthorized !== false) await redirectToLoginAfterSessionReset();
   }
 
   if (!response.ok) await throwApiError(response, "La requete a echoue");
@@ -43,14 +47,22 @@ export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
     if (refreshed) {
       const retryResponse = await requestUpload(path, body);
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401) redirectToSessionExpired();
+      if (retryResponse.status === 401) await redirectToLoginAfterSessionReset();
       await throwApiError(retryResponse, "Le transfert a echoue");
     }
-    redirectToSessionExpired();
+    await redirectToLoginAfterSessionReset();
   }
 
   if (!response.ok) await throwApiError(response, "Le transfert a echoue");
   return parseSuccess<T>(response);
+}
+
+export async function resetClientSession() {
+  if (typeof window === "undefined") return;
+  resetPromise ??= performClientSessionReset().finally(() => {
+    resetPromise = null;
+  });
+  return resetPromise;
 }
 
 async function request(path: string, init?: ApiFetchInit) {
@@ -104,6 +116,7 @@ function shouldRetryUnauthorized(path: string, init?: ApiFetchInit) {
     "/auth/login",
     "/auth/logout",
     "/auth/refresh",
+    "/auth/clear-session",
     "/auth/password-reset/request",
     "/auth/password-reset/confirm",
   ].includes(path);
@@ -127,11 +140,60 @@ async function refreshSession() {
   return refreshPromise;
 }
 
-function redirectToSessionExpired() {
-  if (typeof window === "undefined") return;
-  if (window.location.pathname !== "/session-expired") {
-    window.location.assign("/session-expired");
+async function redirectToLoginAfterSessionReset() {
+  if (typeof window === "undefined" || window.location.pathname === "/login") return;
+  await resetClientSession();
+  const loginUrl = new URL("/login", window.location.origin);
+  loginUrl.searchParams.set("reason", "session-expired");
+  loginUrl.searchParams.set("t", Date.now().toString());
+  window.location.replace(loginUrl.toString());
+}
+
+async function performClientSessionReset() {
+  clearStoredCsrfToken();
+  storeAuthResetMarker();
+  await clearServerSession();
+  await clearRuntimeCachesAndServiceWorkers();
+}
+
+async function clearServerSession() {
+  await fetch(createApiUrl("/auth/clear-session"), {
+    cache: "no-store",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  }).catch(() => undefined);
+}
+
+async function clearRuntimeCachesAndServiceWorkers() {
+  const tasks: Promise<unknown>[] = [];
+
+  if ("caches" in window) {
+    tasks.push(
+      window.caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter(shouldDeleteRuntimeCache)
+            .map((cacheName) => window.caches.delete(cacheName)),
+        ),
+      ),
+    );
   }
+
+  if ("serviceWorker" in navigator) {
+    tasks.push(
+      navigator.serviceWorker.getRegistrations().then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      ),
+    );
+  }
+
+  await Promise.allSettled(tasks);
+}
+
+function shouldDeleteRuntimeCache(cacheName: string) {
+  const normalized = cacheName.toLowerCase();
+  return normalized.includes("abc-crm") || normalized.includes("serwist") || normalized.includes("workbox");
 }
 
 async function throwApiError(response: Response, fallback: string): Promise<never> {
@@ -160,15 +222,20 @@ function persistCsrfToken(payload: unknown) {
       ? payload.data.csrfToken
       : null;
   if (!csrfToken || typeof window === "undefined") return;
-  window.sessionStorage.setItem("abc.csrfToken", csrfToken);
+  window.sessionStorage.setItem(CSRF_STORAGE_KEY, csrfToken);
 }
 
 function getStoredCsrfToken() {
   if (typeof window === "undefined") return undefined;
-  return window.sessionStorage.getItem("abc.csrfToken") ?? undefined;
+  return window.sessionStorage.getItem(CSRF_STORAGE_KEY) ?? undefined;
 }
 
 function clearStoredCsrfToken() {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem("abc.csrfToken");
+  window.sessionStorage.removeItem(CSRF_STORAGE_KEY);
+}
+
+function storeAuthResetMarker() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(AUTH_RESET_STORAGE_KEY, Date.now().toString());
 }
