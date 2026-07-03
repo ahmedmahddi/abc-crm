@@ -62,8 +62,11 @@ enum ClientDocumentType {
 
 enum MissionType {
   AUDIT
+  AUDIT_INTERNE
+  AUDIT_EXTERNE
   FORMATION
   ASSISTANCE
+  AUTRE
 }
 
 enum MissionMode {
@@ -273,6 +276,7 @@ model Mission {
   clientId       String
   title          String
   missionType    MissionType
+  missionTypeOtherLabel String?
   missionMode    MissionMode
   startDateTime  DateTime
   endDateTime    DateTime
@@ -316,6 +320,7 @@ model OrdreMission {
   missionId      String?                 @unique
   clientId       String
   missionType    MissionType
+  missionTypeOtherLabel String?
   missionMode    MissionMode
   startDateTime  DateTime
   endDateTime    DateTime
