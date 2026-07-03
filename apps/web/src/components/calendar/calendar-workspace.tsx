@@ -11,7 +11,13 @@ import listPlugin from "@fullcalendar/list";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import frLocale from "@fullcalendar/core/locales/fr";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { consultantColorPalette } from "@abc/shared";
+import {
+  consultantColorPalette,
+  getMissionTypeLabel,
+  getMissionTypeShortLabel,
+  MISSION_TYPE_LABELS,
+  type MissionType,
+} from "@abc/shared";
 import {
   addDays,
   endOfMonth,
@@ -47,7 +53,8 @@ import type { QueuedOfflineResult } from "@/lib/offline/outbox";
 type Mission = {
   id: string;
   title: string;
-  missionType: "AUDIT" | "FORMATION" | "ASSISTANCE";
+  missionType: MissionType;
+  missionTypeOtherLabel: string | null;
   missionMode: "ONLINE" | "PRESENTIELLE";
   startDateTime: string;
   endDateTime: string;
@@ -81,17 +88,32 @@ const MISSION_MODE_DETAILS = {
 const MISSION_TYPE_DETAILS = {
   ASSISTANCE: {
     className: "border-success/30 bg-success/10 text-success",
-    label: "Assistance",
+    label: MISSION_TYPE_LABELS.ASSISTANCE,
     shortLabel: "Assist.",
   },
   AUDIT: {
     className: "border-brand-200 bg-brand-50 text-brand-700",
-    label: "Audit",
+    label: MISSION_TYPE_LABELS.AUDIT,
     shortLabel: "Audit",
+  },
+  AUDIT_EXTERNE: {
+    className: "border-brand-200 bg-brand-50 text-brand-700",
+    label: MISSION_TYPE_LABELS.AUDIT_EXTERNE,
+    shortLabel: "Ext.",
+  },
+  AUDIT_INTERNE: {
+    className: "border-brand-200 bg-brand-50 text-brand-700",
+    label: MISSION_TYPE_LABELS.AUDIT_INTERNE,
+    shortLabel: "Int.",
+  },
+  AUTRE: {
+    className: "border-abcNeutral-300 bg-abcNeutral-100 text-abcNeutral-800",
+    label: MISSION_TYPE_LABELS.AUTRE,
+    shortLabel: "Autre",
   },
   FORMATION: {
     className: "border-abcNeutral-300 bg-abcNeutral-100 text-abcNeutral-800",
-    label: "Formation",
+    label: MISSION_TYPE_LABELS.FORMATION,
     shortLabel: "Form.",
   },
 } as const;
@@ -597,18 +619,20 @@ function CalendarEvent({
 }: Readonly<{ isMonthView: boolean; mission: Mission; timeText: string }>) {
   const mode = MISSION_MODE_DETAILS[mission.missionMode];
   const type = MISSION_TYPE_DETAILS[mission.missionType];
+  const typeLabel = getMissionTypeLabel(mission.missionType, mission.missionTypeOtherLabel);
+  const typeShortLabel = getMissionTypeShortLabel(mission.missionType, mission.missionTypeOtherLabel);
   const tone = getMissionCalendarTone(mission);
   const cancelledByClient = isClientCancelledMission(mission);
   if (isMonthView) {
     return (
       <div
-        aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
+        aria-label={`${timeText}, ${mission.client.companyName}, ${typeLabel}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
         className="flex min-w-0 items-center gap-1 border-l-2 px-1 py-0.5 text-[0.68rem] leading-tight"
         style={{ borderLeftColor: tone.eventBorder }}
       >
         <span className="shrink-0 font-semibold">{timeText}</span>
         <span className={`shrink-0 rounded border px-1 text-[0.6rem] ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : type.className}`}>
-          {cancelledByClient ? "Annul." : type.shortLabel}
+          {cancelledByClient ? "Annul." : typeShortLabel}
         </span>
         <span className="min-w-0 truncate font-medium">{mission.client.companyName}</span>
         <ConsultantColorDots consultants={mission.consultants} />
@@ -618,7 +642,7 @@ function CalendarEvent({
 
   return (
     <div
-      aria-label={`${timeText}, ${mission.client.companyName}, ${type.label}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
+      aria-label={`${timeText}, ${mission.client.companyName}, ${typeLabel}, ${mode.label}${cancelledByClient ? ", annulee cote client" : ""}`}
       className="flex h-full min-w-0 flex-col justify-start overflow-hidden border-l-4 px-1 py-0.5 text-[0.68rem] leading-tight"
       style={{ borderLeftColor: tone.eventBorder }}
     >
@@ -627,7 +651,7 @@ function CalendarEvent({
         <span className="font-medium"> · {mission.client.companyName}</span>
       </p>
       <p className="truncate text-abcNeutral-700">
-        {cancelledByClient ? "Annulee client" : type.shortLabel} · {mode.label}
+        {cancelledByClient ? "Annulee client" : typeShortLabel} · {mode.label}
         {mission.title ? ` · ${mission.title}` : ""}
       </p>
       <ConsultantColorDots consultants={mission.consultants} />
@@ -664,6 +688,7 @@ function ConsultantColorDots({
 function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
   const mode = MISSION_MODE_DETAILS[mission.missionMode];
   const type = MISSION_TYPE_DETAILS[mission.missionType];
+  const typeLabel = getMissionTypeLabel(mission.missionType, mission.missionTypeOtherLabel);
   const tone = getMissionCalendarTone(mission);
   const cancelledByClient = isClientCancelledMission(mission);
   return (
@@ -681,7 +706,7 @@ function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
         </p>
         <span className="flex shrink-0 flex-col items-end gap-1">
           <span className={`rounded border px-2 py-0.5 text-xs font-medium ${cancelledByClient ? "border-danger/30 bg-danger/10 text-danger" : type.className}`}>
-            {cancelledByClient ? "Annulee client" : type.label}
+            {cancelledByClient ? "Annulee client" : typeLabel}
           </span>
           <span className={`rounded border px-2 py-0.5 text-xs font-medium ${mode.badgeClassName}`}>
             {mode.label}
@@ -693,7 +718,7 @@ function MobileMissionRow({ mission }: Readonly<{ mission: Mission }>) {
         <p className="min-w-0 truncate font-semibold">{mission.client.companyName}</p>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {type.label} · {mission.title} ·{" "}
+        {typeLabel} · {mission.title} ·{" "}
         {mission.consultants.map((consultant) => consultant.fullName).join(", ")}
       </p>
       {cancelledByClient && mission.cancellationReason ? (
@@ -815,5 +840,3 @@ function buildBusinessDays(from: Date, to: Date) {
   }
   return days;
 }
-
-
