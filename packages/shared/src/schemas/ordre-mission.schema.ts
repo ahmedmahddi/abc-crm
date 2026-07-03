@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MISSION_TYPES } from "../domain";
 
 const ordreMissionChronologyRule = (value: { startDateTime?: Date | undefined; endDateTime?: Date | undefined }) =>
   !value.startDateTime || !value.endDateTime || value.endDateTime > value.startDateTime;
@@ -7,7 +8,8 @@ const ordreMissionBaseObjectSchema = z.object({
   clientId: z.string().uuid(),
   missionId: z.string().uuid().optional(),
   consultantIds: z.array(z.string().uuid()).default([]),
-  missionType: z.enum(["AUDIT", "FORMATION", "ASSISTANCE"]),
+  missionType: z.enum(MISSION_TYPES),
+  missionTypeOtherLabel: z.string().trim().max(120).optional().or(z.literal("")),
   missionMode: z.enum(["ONLINE", "PRESENTIELLE"]),
   startDateTime: z.coerce.date(),
   endDateTime: z.coerce.date(),
@@ -19,17 +21,23 @@ const ordreMissionBaseObjectSchema = z.object({
   requiresReview: z.coerce.boolean().default(false),
 });
 
-export const ordreMissionCreateSchema = ordreMissionBaseObjectSchema.refine(ordreMissionChronologyRule, {
-  message: "La date de fin doit être postérieure à la date de début",
-  path: ["endDateTime"],
-});
+export const ordreMissionCreateSchema = ordreMissionBaseObjectSchema
+  .superRefine(validateOtherMissionType)
+  .refine(ordreMissionChronologyRule, {
+    message: "La date de fin doit etre posterieure a la date de debut",
+    path: ["endDateTime"],
+  });
 
-export const ordreMissionUpdateSchema = ordreMissionBaseObjectSchema.partial().extend({
-  version: z.coerce.number().int().positive(),
-}).refine(ordreMissionChronologyRule, {
-  message: "La date de fin doit être postérieure à la date de début",
-  path: ["endDateTime"],
-});
+export const ordreMissionUpdateSchema = ordreMissionBaseObjectSchema
+  .partial()
+  .extend({
+    version: z.coerce.number().int().positive(),
+  })
+  .superRefine(validateOtherMissionType)
+  .refine(ordreMissionChronologyRule, {
+    message: "La date de fin doit etre posterieure a la date de debut",
+    path: ["endDateTime"],
+  });
 
 export const ordreMissionListQuerySchema = z.object({
   q: z.string().trim().optional(),
@@ -44,3 +52,16 @@ export const ordreMissionListQuerySchema = z.object({
 export type OrdreMissionCreateInput = z.infer<typeof ordreMissionCreateSchema>;
 export type OrdreMissionUpdateInput = z.infer<typeof ordreMissionUpdateSchema>;
 export type OrdreMissionListQuery = z.infer<typeof ordreMissionListQuerySchema>;
+
+function validateOtherMissionType(
+  value: { missionType?: string | undefined; missionTypeOtherLabel?: string | undefined },
+  context: z.RefinementCtx,
+) {
+  if (value.missionType === "AUTRE" && !value.missionTypeOtherLabel?.trim()) {
+    context.addIssue({
+      code: "custom",
+      message: "Precisez le type de mission",
+      path: ["missionTypeOtherLabel"],
+    });
+  }
+}
