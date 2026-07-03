@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MISSION_TYPES } from "../domain";
 
 const missionChronologyRule = (value: { startDateTime?: Date | undefined; endDateTime?: Date | undefined }) =>
   !value.startDateTime || !value.endDateTime || value.endDateTime > value.startDateTime;
@@ -13,7 +14,8 @@ const missionBaseObjectSchema = z.object({
   consultantIds: z.array(z.string().uuid()).optional(),
   consultantAssignments: z.array(missionConsultantAssignmentSchema).optional(),
   title: z.string().min(2),
-  missionType: z.enum(["AUDIT", "FORMATION", "ASSISTANCE"]),
+  missionType: z.enum(MISSION_TYPES),
+  missionTypeOtherLabel: z.string().trim().max(120).optional().or(z.literal("")),
   missionMode: z.enum(["ONLINE", "PRESENTIELLE"]),
   startDateTime: z.coerce.date(),
   endDateTime: z.coerce.date(),
@@ -23,6 +25,7 @@ const missionBaseObjectSchema = z.object({
 });
 
 export const missionCreateSchema = missionBaseObjectSchema
+  .superRefine(validateOtherMissionType)
   .superRefine(validateMissionAssignments)
   .refine(missionChronologyRule, {
     message: "La date de fin doit etre posterieure a la date de debut",
@@ -35,6 +38,7 @@ export const missionUpdateSchema = missionBaseObjectSchema
     version: z.coerce.number().int().positive(),
   })
   .superRefine((value, context) => {
+    validateOtherMissionType(value, context);
     if (value.consultantAssignments !== undefined || value.consultantIds !== undefined) {
       validateMissionAssignments(value, context);
     }
@@ -91,6 +95,19 @@ function validateMissionAssignments(
       code: "custom",
       message: "Selectionnez au moins un responsable de mission",
       path: ["consultantAssignments"],
+    });
+  }
+}
+
+function validateOtherMissionType(
+  value: { missionType?: string | undefined; missionTypeOtherLabel?: string | undefined },
+  context: z.RefinementCtx,
+) {
+  if (value.missionType === "AUTRE" && !value.missionTypeOtherLabel?.trim()) {
+    context.addIssue({
+      code: "custom",
+      message: "Precisez le type de mission",
+      path: ["missionTypeOtherLabel"],
     });
   }
 }
