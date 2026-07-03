@@ -22,8 +22,19 @@ const nextConfig = {
   turbopack: {
     root: path.resolve(import.meta.dirname, "../.."),
   },
+  async redirects() {
+    const stalePath = "/" + ["session", "expired"].join("-");
+    return [
+      {
+        source: stalePath,
+        destination: "/login?reason=timeout",
+        permanent: false,
+      },
+    ];
+  },
   async headers() {
-    return ["/login", "/forgot-password", "/reset-password", "/session-expired", "/logged-out"].map((source) => ({
+    const stalePath = "/" + ["session", "expired"].join("-");
+    return ["/login", "/forgot-password", "/reset-password", stalePath, "/logged-out"].map((source) => ({
       source,
       headers: noStoreHeaders,
     }));
