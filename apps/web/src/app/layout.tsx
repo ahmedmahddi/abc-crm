@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, Newsreader } from "next/font/google";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { ClientCleanup } from "@/components/providers/client-cleanup";
 import "./globals.css";
 
 const display = Newsreader({
@@ -28,6 +27,7 @@ export const metadata: Metadata = {
     shortcut: "/brand/logo-fb.png",
     apple: [{ url: "/brand/logo-fb.png", sizes: "512x512", type: "image/png" }],
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
@@ -38,7 +38,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="fr">
       <body className={`${display.variable} ${body.variable}`}>
-        <ClientCleanup />
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
