@@ -31,6 +31,14 @@ export class AuthController {
     return { data: { csrfToken: result.csrfToken, user: result.user } };
   }
 
+  @Get("clear-session")
+  @Post("clear-session")
+  @HttpCode(HttpStatus.OK)
+  clearSession(@Res({ passthrough: true }) response: Response) {
+    clearAuthCookies(response);
+    return { data: { ok: true } };
+  }
+
   @Post("password-reset/request")
   @HttpCode(HttpStatus.OK)
   requestPasswordReset(@Body() body: unknown) {
@@ -87,13 +95,20 @@ function setAuthCookies(
 }
 
 function clearAuthCookies(response: Response) {
-  response.clearCookie("access_token", { path: "/" });
-  response.clearCookie("refresh_token", { path: "/" });
-  response.clearCookie("csrf_token", { path: "/" });
+  const secure = process.env.COOKIE_SECURE === "true";
+  const sameSite = (process.env.COOKIE_SAME_SITE ?? "lax").toLowerCase() === "none" ? "none" : "lax";
+  const options = clearCookieOptions(secure, sameSite);
+  response.clearCookie("access_token", options);
+  response.clearCookie("refresh_token", options);
+  response.clearCookie("csrf_token", options);
 }
 
 function cookieOptions(maxAge: number, secure: boolean, sameSite: "lax" | "none") {
   return { httpOnly: true, sameSite, secure, maxAge, path: "/" };
+}
+
+function clearCookieOptions(secure: boolean, sameSite: "lax" | "none") {
+  return { sameSite, secure, path: "/" };
 }
 
 function getRefreshTokenMaxAgeMs() {
