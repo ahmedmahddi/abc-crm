@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { API_URL } from "@/lib/api";
 
 export default function RestoreAccessPage() {
   const [message, setMessage] = useState("Preparation de la reconnexion...");
 
   useEffect(() => {
     async function run() {
+      setMessage("Fermeture de la session serveur...");
+      await fetch(`${API_URL}/auth/clear-session`, {
+        cache: "no-store",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      }).catch(() => undefined);
+
       setMessage("Nettoyage de l'application locale...");
       window.sessionStorage.clear();
       window.localStorage.removeItem("abc.cleanup.v1");
