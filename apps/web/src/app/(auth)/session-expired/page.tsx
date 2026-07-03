@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function SessionExpiredPage() {
   return (
@@ -13,7 +12,9 @@ export default function SessionExpiredPage() {
         <p className="rounded-md border border-warning/30 bg-white px-3 py-3 text-sm text-muted-foreground" role="status">
           Les changements hors ligne restent conserves localement. La synchronisation reprendra apres authentification.
         </p>
-        <Button asChild className="w-full"><Link href="/login">Se reconnecter</Link></Button>
+        <a className={buttonVariants({ className: "w-full" })} href="/login?reason=session-expired">
+          Se reconnecter
+        </a>
       </div>
     </AuthShell>
   );
