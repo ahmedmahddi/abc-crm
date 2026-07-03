@@ -1,5 +1,7 @@
 export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || "/api/v1");
 
+const CSRF_STORAGE_KEY = "abc.csrfToken";
+
 type ApiFetchInit = RequestInit & {
   redirectOnUnauthorized?: boolean;
   retryOnUnauthorized?: boolean;
@@ -24,10 +26,10 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (refreshed) {
       const retryResponse = await request(path, { ...init, retryOnUnauthorized: false });
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401 && init?.redirectOnUnauthorized !== false) redirectToSessionExpired();
+      if (retryResponse.status === 401 && init?.redirectOnUnauthorized !== false) redirectToLogin();
       await throwApiError(retryResponse, "La requete a echoue");
     }
-    if (init?.redirectOnUnauthorized !== false) redirectToSessionExpired();
+    if (init?.redirectOnUnauthorized !== false) redirectToLogin();
   }
 
   if (!response.ok) await throwApiError(response, "La requete a echoue");
@@ -43,10 +45,10 @@ export async function apiUpload<T>(path: string, body: FormData): Promise<T> {
     if (refreshed) {
       const retryResponse = await requestUpload(path, body);
       if (retryResponse.ok) return parseSuccess<T>(retryResponse);
-      if (retryResponse.status === 401) redirectToSessionExpired();
+      if (retryResponse.status === 401) redirectToLogin();
       await throwApiError(retryResponse, "Le transfert a echoue");
     }
-    redirectToSessionExpired();
+    redirectToLogin();
   }
 
   if (!response.ok) await throwApiError(response, "Le transfert a echoue");
@@ -127,10 +129,11 @@ async function refreshSession() {
   return refreshPromise;
 }
 
-function redirectToSessionExpired() {
+function redirectToLogin() {
   if (typeof window === "undefined") return;
-  if (window.location.pathname !== "/session-expired") {
-    window.location.assign("/session-expired");
+  clearStoredCsrfToken();
+  if (window.location.pathname !== "/login") {
+    window.location.replace(`/login?reason=auth-required&t=${Date.now()}`);
   }
 }
 
@@ -160,15 +163,15 @@ function persistCsrfToken(payload: unknown) {
       ? payload.data.csrfToken
       : null;
   if (!csrfToken || typeof window === "undefined") return;
-  window.sessionStorage.setItem("abc.csrfToken", csrfToken);
+  window.sessionStorage.setItem(CSRF_STORAGE_KEY, csrfToken);
 }
 
 function getStoredCsrfToken() {
   if (typeof window === "undefined") return undefined;
-  return window.sessionStorage.getItem("abc.csrfToken") ?? undefined;
+  return window.sessionStorage.getItem(CSRF_STORAGE_KEY) ?? undefined;
 }
 
 function clearStoredCsrfToken() {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem("abc.csrfToken");
+  window.sessionStorage.removeItem(CSRF_STORAGE_KEY);
 }
