@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, ExternalLink, FileSpreadsheet, FileText, Printer } from "lucide-react";
+import { getMissionTypeLabel, type MissionType } from "@abc/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,8 @@ type Ordre = {
   location?: string;
   status: "DRAFT" | "VALIDATED" | "PRINTED" | "CANCELLED" | "ARCHIVED";
   missionMode: string;
-  missionType: string;
+  missionType: MissionType;
+  missionTypeOtherLabel: string | null;
   requiresReview: boolean;
   client: { id: string; companyName: string };
   consultants: { id: string; fullName: string; email?: string }[];
@@ -47,6 +49,7 @@ export function OrdreMissionDetail({ id }: Readonly<{ id: string }>) {
   if (query.isPending) return <Skeleton className="h-96" />;
   if (query.isError) return <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">Impossible de charger cet ordre de mission.</p>;
   const ordre = query.data.data;
+  const missionTypeLabel = getMissionTypeLabel(ordre.missionType, ordre.missionTypeOtherLabel);
   const previewUrl = `${API_URL}/ordres-mission/${ordre.id}/preview`;
 
   return <div className="flex flex-col gap-5">
@@ -71,7 +74,7 @@ export function OrdreMissionDetail({ id }: Readonly<{ id: string }>) {
             <Fact label="Mission">{ordre.mission ? <Link className="text-brand-700 hover:underline" href={`/missions/${ordre.mission.id}`}>{ordre.mission.title}</Link> : "Ordre manuel"}</Fact>
             <Fact label="Période">{formatDateTime.format(new Date(ordre.startDateTime))}<br />{formatDateTime.format(new Date(ordre.endDateTime))}</Fact>
             <Fact label="Mode et lieu">{ordre.missionMode}{ordre.location ? ` · ${ordre.location}` : ""}</Fact>
-            <Fact label="Type">{ordre.missionType}</Fact>
+            <Fact label="Type">{missionTypeLabel}</Fact>
             <Fact label="Modèle">{ordre.template?.name ?? "Modèle par défaut"}</Fact>
           </CardContent>
         </Card>
