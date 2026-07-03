@@ -24,13 +24,15 @@ import { apiFetch } from "@/lib/api";
 import { enqueueOfflineMutation, isQueuedOfflineResult, shouldQueueOffline } from "@/lib/offline/outbox";
 import type { QueuedOfflineResult } from "@/lib/offline/outbox";
 import { RoleGate } from "@/components/auth/role-gate";
+import { getMissionTypeLabel, type MissionType } from "@abc/shared";
 
 type MissionDetailResponse = {
   data: {
     id: string;
     title: string;
     description: string | null;
-    missionType: string;
+    missionType: MissionType;
+    missionTypeOtherLabel: string | null;
     missionMode: "ONLINE" | "PRESENTIELLE";
     startDateTime: string;
     endDateTime: string;
@@ -103,6 +105,7 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
   }
 
   const mission = query.data.data;
+  const missionTypeLabel = getMissionTypeLabel(mission.missionType, mission.missionTypeOtherLabel);
 
   return (
     <div className="flex flex-col gap-5">
@@ -114,7 +117,7 @@ export function MissionDetail({ missionId }: Readonly<{ missionId: string }>) {
             <Badge>{mission.status}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mission.client.companyName} - {mission.missionType}
+            {mission.client.companyName} - {missionTypeLabel}
           </p>
         </div>
         <RoleGate allowedRoles={["ADMIN", "RESPONSABLE"]}>
