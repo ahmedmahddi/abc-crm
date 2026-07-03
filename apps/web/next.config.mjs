@@ -2,11 +2,11 @@ import path from "node:path";
 import withSerwistInit from "@serwist/next";
 
 const withSerwist = withSerwistInit({
-  cacheOnNavigation: false,
-  disable: true,
-  globPublicPatterns: [],
-  register: false,
-  reloadOnOnline: false,
+  cacheOnNavigation: true,
+  disable: process.env.NODE_ENV !== "production",
+  globPublicPatterns: ["brand/abc-logo.webp"],
+  register: true,
+  reloadOnOnline: true,
   swDest: "public/sw.js",
   swSrc: "src/app/sw.ts",
 });
