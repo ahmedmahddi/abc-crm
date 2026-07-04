@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MISSION_TYPES } from "../domain";
+import { MISSION_TYPE_OPTIONS } from "../domain";
 
 const ordreMissionChronologyRule = (value: { startDateTime?: Date | undefined; endDateTime?: Date | undefined }) =>
   !value.startDateTime || !value.endDateTime || value.endDateTime > value.startDateTime;
@@ -8,7 +8,7 @@ const ordreMissionBaseObjectSchema = z.object({
   clientId: z.string().uuid(),
   missionId: z.string().uuid().optional(),
   consultantIds: z.array(z.string().uuid()).default([]),
-  missionType: z.enum(MISSION_TYPES),
+  missionType: z.enum(MISSION_TYPE_OPTIONS),
   missionTypeOtherLabel: z.string().trim().max(120).optional().or(z.literal("")),
   missionMode: z.enum(["ONLINE", "PRESENTIELLE"]),
   startDateTime: z.coerce.date(),
