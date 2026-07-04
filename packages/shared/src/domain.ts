@@ -12,10 +12,12 @@ export type ConsultantStatus = (typeof CONSULTANT_STATUSES)[number];
 
 export const MISSION_TYPES = ["AUDIT", "AUDIT_INTERNE", "AUDIT_EXTERNE", "FORMATION", "ASSISTANCE", "AUTRE"] as const;
 export type MissionType = (typeof MISSION_TYPES)[number];
+export const MISSION_TYPE_OPTIONS = ["AUDIT_INTERNE", "AUDIT_EXTERNE", "FORMATION", "ASSISTANCE", "AUTRE"] as const;
+export type MissionTypeOption = (typeof MISSION_TYPE_OPTIONS)[number];
 
 export const MISSION_TYPE_LABELS: Record<MissionType, string> = {
   ASSISTANCE: "Assistance",
-  AUDIT: "Audit",
+  AUDIT: "Audit interne",
   AUDIT_EXTERNE: "Audit externe",
   AUDIT_INTERNE: "Audit interne",
   AUTRE: "Autre",
@@ -24,7 +26,7 @@ export const MISSION_TYPE_LABELS: Record<MissionType, string> = {
 
 export const MISSION_TYPE_SHORT_LABELS: Record<MissionType, string> = {
   ASSISTANCE: "Assist.",
-  AUDIT: "Audit",
+  AUDIT: "Int.",
   AUDIT_EXTERNE: "Ext.",
   AUDIT_INTERNE: "Int.",
   AUTRE: "Autre",
