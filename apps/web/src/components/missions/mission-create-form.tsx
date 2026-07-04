@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { MISSION_TYPE_LABELS, MISSION_TYPES, missionCreateSchema, type MissionCreateInput } from "@abc/shared";
+import { MISSION_TYPE_LABELS, MISSION_TYPE_OPTIONS, missionCreateSchema, type MissionCreateInput } from "@abc/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -39,7 +39,7 @@ export function MissionCreateForm() {
       endDateTime: "",
       location: "",
       missionMode: "PRESENTIELLE",
-      missionType: "AUDIT",
+      missionType: "AUDIT_INTERNE",
       missionTypeOtherLabel: "",
       startDateTime: "",
       status: "PLANNED",
@@ -101,7 +101,7 @@ export function MissionCreateForm() {
               <Field>
                 <FieldLabel htmlFor="missionType">Type</FieldLabel>
                 <select className="h-11 rounded-md border bg-white px-3 text-sm" id="missionType" {...form.register("missionType")}>
-                  {MISSION_TYPES.map((type) => (
+                  {MISSION_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
                       {MISSION_TYPE_LABELS[type]}
                     </option>
