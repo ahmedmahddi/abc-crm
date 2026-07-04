@@ -6,7 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { MISSION_TYPE_LABELS, MISSION_TYPES, missionUpdateSchema, type MissionType, type MissionUpdateInput } from "@abc/shared";
+import {
+  MISSION_TYPE_LABELS,
+  MISSION_TYPE_OPTIONS,
+  missionUpdateSchema,
+  type MissionType,
+  type MissionTypeOption,
+  type MissionUpdateInput,
+} from "@abc/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -75,7 +82,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
       endDateTime: toDateTimeLocalValue(mission.endDateTime),
       location: mission.location ?? "",
       missionMode: mission.missionMode,
-      missionType: mission.missionType,
+      missionType: normalizeEditableMissionType(mission.missionType),
       missionTypeOtherLabel: mission.missionTypeOtherLabel ?? "",
       startDateTime: toDateTimeLocalValue(mission.startDateTime),
       status: mission.status,
@@ -145,7 +152,7 @@ function LoadedMissionEditForm({ mission }: Readonly<{ mission: MissionResponse[
               <Field>
                 <FieldLabel htmlFor="missionType">Type</FieldLabel>
                 <select className="h-11 rounded-md border bg-white px-3 text-sm" id="missionType" {...form.register("missionType")}>
-                  {MISSION_TYPES.map((type) => (
+                  {MISSION_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
                       {MISSION_TYPE_LABELS[type]}
                     </option>
@@ -304,4 +311,8 @@ function toDateTimeLocalValue(value: string) {
   const date = new Date(value);
   const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return offsetDate.toISOString().slice(0, 16);
+}
+
+function normalizeEditableMissionType(missionType: MissionType): MissionTypeOption {
+  return missionType === "AUDIT" ? "AUDIT_INTERNE" : missionType;
 }
