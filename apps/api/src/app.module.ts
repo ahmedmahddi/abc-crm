@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
+import { AuditExterneModule } from "./audit-externe/audit-externe.module";
 import { AuthModule } from "./auth/auth.module";
 import { ClientsModule } from "./clients/clients.module";
 import { ConsultantsModule } from "./consultants/consultants.module";
@@ -13,10 +15,12 @@ import { UsersModule } from "./users/users.module";
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ["../../.env", ".env"] }),
     PrismaModule,
     HealthModule,
     AuthModule,
+    AuditExterneModule,
     ClientsModule,
     ConsultantsModule,
     FilesModule,
