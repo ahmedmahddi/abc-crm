@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import type { FieldErrors, UseFormRegister } from "react-hook-form";
+import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { auditExterneUpdateSchema, type AuditExterneUpdateInput } from "@abc/shared";
 import { AuditExterneFields, type AuditExterneFieldValues } from "@/components/audit-externe/audit-externe-fields";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,7 @@ function LoadedAuditExterneEditForm({ record }: Readonly<{ record: AuditExterneR
             <AuditExterneFields
               register={form.register as unknown as UseFormRegister<AuditExterneFieldValues>}
               errors={form.formState.errors as FieldErrors<AuditExterneFieldValues>}
+              watch={form.watch as unknown as UseFormWatch<AuditExterneFieldValues>}
             />
           </FieldGroup>
         </CardContent>

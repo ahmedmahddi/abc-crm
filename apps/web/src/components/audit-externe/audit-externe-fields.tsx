@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { FieldErrors, UseFormRegister } from "react-hook-form";
+import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
 import { AUDIT_EXTERNE_REFERENCES, AUDIT_EXTERNE_REFERENCE_LABELS, AUDIT_EXTERNE_TYPES, AUDIT_EXTERNE_TYPE_LABELS } from "@abc/shared";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,11 @@ export type AuditExterneFieldValues = {
 export function AuditExterneFields({
   register,
   errors,
+  watch,
 }: Readonly<{
   register: UseFormRegister<AuditExterneFieldValues>;
   errors: FieldErrors<AuditExterneFieldValues>;
+  watch: UseFormWatch<AuditExterneFieldValues>;
 }>) {
   const clients = useQuery({
     queryKey: ["clients", "active-options"],
@@ -35,12 +37,14 @@ export function AuditExterneFields({
     queryKey: ["audit-externe", "responsables"],
     queryFn: () => apiFetch<ListResponse<Responsable>>("/audit-externe/responsables"),
   });
+  const clientIdValue = watch("clientId");
+  const responsableIdValue = watch("responsableId");
 
   return (
     <>
       <Field data-invalid={Boolean(errors.clientId)}>
         <FieldLabel htmlFor="ae-clientId">Client</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" {...register("clientId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" value={clientIdValue ?? ""} {...register("clientId")}>
           <option value="">Selectionner un client</option>
           {clients.data?.data.map((client) => (
             <option key={client.id} value={client.id}>
@@ -84,7 +88,7 @@ export function AuditExterneFields({
       </Field>
       <Field data-invalid={Boolean(errors.responsableId)}>
         <FieldLabel htmlFor="ae-responsableId">Responsable</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" {...register("responsableId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" value={responsableIdValue ?? ""} {...register("responsableId")}>
           <option value="">Selectionner un responsable</option>
           {responsables.data?.data.map((user) => (
             <option key={user.id} value={user.id}>

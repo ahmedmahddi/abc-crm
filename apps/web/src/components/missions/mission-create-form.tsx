@@ -170,7 +170,7 @@ export function MissionCreateForm() {
             {missionType === "AUDIT_EXTERNE" ? (
               <div className="flex flex-col gap-4 rounded-md border border-dashed p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details de l&apos;audit externe</p>
-                <AuditExterneFields register={auditExterneForm.register} errors={auditExterneForm.formState.errors} />
+                <AuditExterneFields register={auditExterneForm.register} errors={auditExterneForm.formState.errors} watch={auditExterneForm.watch} />
               </div>
             ) : null}
           </FieldGroup>
