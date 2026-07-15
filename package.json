@@ -18,7 +18,8 @@
     "db:migrate": "pnpm --filter @abc/db prisma:migrate",
     "db:deploy": "pnpm --filter @abc/db prisma:deploy",
     "db:studio": "pnpm --filter @abc/db prisma:studio",
-    "seed:admin": "pnpm --filter @abc/api seed:admin"
+    "seed:admin": "pnpm --filter @abc/api seed:admin",
+    "seed:mock": "pnpm --filter @abc/api seed:mock"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",
