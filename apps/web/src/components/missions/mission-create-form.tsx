@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import { MISSION_TYPE_LABELS, MISSION_TYPE_OPTIONS, missionCreateSchema, type MissionCreateInput } from "@abc/shared";
+import { AuditExterneFields, type AuditExterneFieldValues } from "@/components/audit-externe/audit-externe-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -47,10 +49,33 @@ export function MissionCreateForm() {
     },
     resolver: zodResolver(missionCreateSchema),
   });
+  const auditExterneForm = useForm<AuditExterneFieldValues>({
+    defaultValues: { clientId: "", responsableId: "", typeAudit: "CERTIFICATION", reference: "NORME_9001", organisme: "", auditeur: "" },
+  });
   const consultantAssignments = form.watch("consultantAssignments") ?? [];
   const missionType = form.watch("missionType");
+  const watchedClientId = form.watch("clientId");
+  useEffect(() => {
+    auditExterneForm.setValue("clientId", watchedClientId);
+  }, [auditExterneForm, watchedClientId]);
   const mutation = useMutation({
-    mutationFn: (input: MissionCreateInput): Promise<Record<string, unknown> | QueuedOfflineResult> => {
+    mutationFn: async (input: MissionCreateInput): Promise<Record<string, unknown> | QueuedOfflineResult> => {
+      if (input.missionType === "AUDIT_EXTERNE") {
+        const auditExterneValues = auditExterneForm.getValues();
+        const auditExternePayload = {
+          clientId: input.clientId,
+          responsableId: auditExterneValues.responsableId,
+          typeAudit: auditExterneValues.typeAudit,
+          reference: auditExterneValues.reference,
+          organisme: auditExterneValues.organisme,
+          auditeur: auditExterneValues.auditeur,
+          missionMode: input.missionMode,
+          startDateTime: input.startDateTime,
+          endDateTime: input.endDateTime,
+          location: input.location,
+        };
+        return apiFetch<Record<string, unknown>>("/audit-externe", { method: "POST", body: JSON.stringify(auditExternePayload) });
+      }
       if (shouldQueueOffline()) {
         return enqueueOfflineMutation({ entityType: "MISSION", operation: "CREATE", payload: input });
       }
@@ -59,10 +84,23 @@ export function MissionCreateForm() {
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["missions"] });
+      await queryClient.invalidateQueries({ queryKey: ["audit-externe"] });
       router.push(isQueuedOfflineResult(result) ? "/sync?queued=mission" : "/calendar");
     },
   });
-  const submit = form.handleSubmit((values) => mutation.mutate(values));
+  const submit = form.handleSubmit(
+    (values) => mutation.mutate(values),
+    (formErrors) => {
+      if (missionType === "AUDIT_EXTERNE" && Object.keys(formErrors).every((key) => key === "consultantAssignments")) {
+        // Bypasses RHF validation deliberately: AUDIT_EXTERNE submissions don't use
+        // consultantAssignments (they use auditExterneForm's responsableId instead), so
+        // the only possible validation error here is the one we're intentionally skipping.
+        // The raw (uncoerced) values are still valid JSON for the API, which re-validates
+        // and coerces them server-side via the same Zod schema.
+        mutation.mutate(form.getValues() as unknown as MissionCreateInput);
+      }
+    },
+  );
 
   return (
     <form className="flex flex-col gap-5" onSubmit={(event) => void submit(event)}>
@@ -128,6 +166,12 @@ export function MissionCreateForm() {
                   <FieldError>Precisez le type de mission.</FieldError>
                 ) : null}
               </Field>
+            ) : null}
+            {missionType === "AUDIT_EXTERNE" ? (
+              <div className="flex flex-col gap-4 rounded-md border border-dashed p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Details de l&apos;audit externe</p>
+                <AuditExterneFields register={auditExterneForm.register} errors={auditExterneForm.formState.errors} />
+              </div>
             ) : null}
           </FieldGroup>
         </CardContent>
