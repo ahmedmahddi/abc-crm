@@ -20,12 +20,12 @@ export type AuditExterneFieldValues = {
   auditeur: string;
 };
 
-export function AuditExterneFields({
+export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>({
   register,
   errors,
 }: Readonly<{
-  register: UseFormRegister<AuditExterneFieldValues>;
-  errors: FieldErrors<AuditExterneFieldValues>;
+  register: UseFormRegister<TFieldValues>;
+  errors: FieldErrors<TFieldValues>;
 }>) {
   const clients = useQuery({
     queryKey: ["clients", "active-options"],
@@ -35,12 +35,13 @@ export function AuditExterneFields({
     queryKey: ["audit-externe", "responsables"],
     queryFn: () => apiFetch<ListResponse<Responsable>>("/audit-externe/responsables"),
   });
+  const registerField = register as unknown as UseFormRegister<AuditExterneFieldValues>;
 
   return (
     <>
       <Field data-invalid={Boolean(errors.clientId)}>
         <FieldLabel htmlFor="ae-clientId">Client</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" {...register("clientId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" {...registerField("clientId")}>
           <option value="">Selectionner un client</option>
           {clients.data?.data.map((client) => (
             <option key={client.id} value={client.id}>
@@ -53,7 +54,7 @@ export function AuditExterneFields({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={Boolean(errors.typeAudit)}>
           <FieldLabel htmlFor="ae-typeAudit">Type d&apos;audit</FieldLabel>
-          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-typeAudit" {...register("typeAudit")}>
+          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-typeAudit" {...registerField("typeAudit")}>
             {AUDIT_EXTERNE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {AUDIT_EXTERNE_TYPE_LABELS[type]}
@@ -63,7 +64,7 @@ export function AuditExterneFields({
         </Field>
         <Field data-invalid={Boolean(errors.reference)}>
           <FieldLabel htmlFor="ae-reference">Reference</FieldLabel>
-          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-reference" {...register("reference")}>
+          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-reference" {...registerField("reference")}>
             {AUDIT_EXTERNE_REFERENCES.map((reference) => (
               <option key={reference} value={reference}>
                 {AUDIT_EXTERNE_REFERENCE_LABELS[reference]}
@@ -74,17 +75,17 @@ export function AuditExterneFields({
       </div>
       <Field data-invalid={Boolean(errors.organisme)}>
         <FieldLabel htmlFor="ae-organisme">Organisme de certification</FieldLabel>
-        <Input id="ae-organisme" aria-invalid={Boolean(errors.organisme)} {...register("organisme")} />
+        <Input id="ae-organisme" aria-invalid={Boolean(errors.organisme)} {...registerField("organisme")} />
         {errors.organisme ? <FieldError>Indiquez l&apos;organisme certificateur.</FieldError> : null}
       </Field>
       <Field data-invalid={Boolean(errors.auditeur)}>
         <FieldLabel htmlFor="ae-auditeur">Auditeur</FieldLabel>
-        <Input id="ae-auditeur" aria-invalid={Boolean(errors.auditeur)} {...register("auditeur")} />
+        <Input id="ae-auditeur" aria-invalid={Boolean(errors.auditeur)} {...registerField("auditeur")} />
         {errors.auditeur ? <FieldError>Indiquez le nom de l&apos;auditeur.</FieldError> : null}
       </Field>
       <Field data-invalid={Boolean(errors.responsableId)}>
         <FieldLabel htmlFor="ae-responsableId">Responsable</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" {...register("responsableId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" {...registerField("responsableId")}>
           <option value="">Selectionner un responsable</option>
           {responsables.data?.data.map((user) => (
             <option key={user.id} value={user.id}>
