@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { RefreshCw, UserCog, UserRoundCog } from "lucide-react";
+import { FileCheck2, RefreshCw, UserCog, UserRoundCog } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader, PagePanel, PageStack } from "@/components/layout/page-section";
 import { PushNotificationSettings } from "@/components/notifications/push-notification-settings";
 import { useAuth } from "@/components/providers/auth-provider";
 
 const sections = [
+  { href: "/audit-externe", label: "Audit Externe", description: "Audits de certification et de suivi", icon: FileCheck2 },
   { href: "/consultants", label: "Consultants", description: "Affectations et comptes lies", icon: UserRoundCog },
   { href: "/users", label: "Utilisateurs", description: "Comptes, roles et sessions", icon: UserCog },
   { href: "/sync", label: "Synchronisation", description: "File d'attente et conflits hors ligne", icon: RefreshCw },

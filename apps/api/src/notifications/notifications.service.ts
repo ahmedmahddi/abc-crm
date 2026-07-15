@@ -12,6 +12,16 @@ type PushPayload = {
   tag?: string;
 };
 
+type AppNotificationParams = {
+  userId: string;
+  type: string;
+  title: string;
+  body: string;
+  entityType: string;
+  entityId: string;
+  url?: string;
+};
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {
@@ -92,6 +102,45 @@ export class NotificationsService {
     );
 
     return { data: { failed, revoked, sent, skipped: false } };
+  }
+
+  async notifyUser(params: AppNotificationParams) {
+    await this.prisma.appNotification.create({
+      data: {
+        userId: params.userId,
+        type: params.type,
+        title: params.title,
+        body: params.body,
+        entityType: params.entityType,
+        entityId: params.entityId,
+      },
+    });
+    return this.sendToUsers([params.userId], {
+      title: params.title,
+      body: params.body,
+      ...(params.url !== undefined ? { url: params.url } : {}),
+      tag: `${params.entityType.toLowerCase()}-${params.entityId}`,
+    });
+  }
+
+  async listForUser(userId: string) {
+    const [notifications, unreadCount] = await this.prisma.$transaction([
+      this.prisma.appNotification.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      this.prisma.appNotification.count({ where: { userId, readAt: null } }),
+    ]);
+    return { data: notifications, meta: { unreadCount } };
+  }
+
+  async markRead(id: string, userId: string) {
+    await this.prisma.appNotification.updateMany({
+      where: { id, userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { data: { ok: true } };
   }
 }
 

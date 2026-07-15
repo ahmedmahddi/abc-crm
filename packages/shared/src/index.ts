@@ -1,6 +1,7 @@
 export * from "./brand";
 export * from "./client-documents";
 export * from "./domain";
+export * from "./schemas/audit-externe.schema";
 export * from "./schemas/auth.schema";
 export * from "./schemas/client.schema";
 export * from "./schemas/consultant.schema";

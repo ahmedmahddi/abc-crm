@@ -2,6 +2,7 @@
 
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useAuth } from "@/components/providers/auth-provider";
 
 export function AppHeader() {
@@ -23,6 +24,7 @@ export function AppHeader() {
         ) : isPending ? (
           <p className="text-xs text-muted-foreground">Session...</p>
         ) : null}
+        {user ? <NotificationBell /> : null}
         {user ? (
           <Button
             aria-label="Se deconnecter"

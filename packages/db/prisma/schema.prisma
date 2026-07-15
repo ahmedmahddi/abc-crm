@@ -112,6 +112,21 @@ enum SyncMutationStatus {
   CONFLICT
 }
 
+enum AuditExterneType {
+  CERTIFICATION
+  SUIVI_1
+  SUIVI_2
+}
+
+enum AuditExterneReference {
+  NORME_9001
+  QSE
+  NORME_22000
+  FSSC
+  BRC
+  BRC_IFS
+}
+
 model User {
   id              String               @id @default(uuid())
   name            String
@@ -132,6 +147,8 @@ model User {
   syncMutations   SyncMutation[]
   pushSubscriptions PushSubscription[]
   consultant      Consultant?
+  auditExternesResponsable AuditExterne[]
+  appNotifications         AppNotification[]
 }
 
 model Session {
@@ -204,6 +221,7 @@ model Client {
   documents             ClientDocument[]
   missions              Mission[]
   ordresMission         OrdreMission[]
+  auditExternes         AuditExterne[]
 
   @@index([companyName])
   @@index([activitySector])
@@ -296,6 +314,7 @@ model Mission {
   createdBy      User                 @relation("MissionCreatedBy", fields: [createdById], references: [id])
   consultants    MissionConsultant[]
   ordreMission   OrdreMission?
+  auditExterne   AuditExterne?
 
   @@index([clientId])
   @@index([startDateTime])
@@ -444,4 +463,42 @@ model PushSubscription {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, revokedAt])
+}
+
+model AuditExterne {
+  id             String                @id @default(uuid())
+  missionId      String                @unique
+  clientId       String
+  typeAudit      AuditExterneType
+  reference      AuditExterneReference
+  organisme      String
+  auditeur       String
+  responsableId  String
+  reminderSentAt DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  version        Int                   @default(1)
+
+  mission        Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  client         Client  @relation(fields: [clientId], references: [id])
+  responsable    User    @relation(fields: [responsableId], references: [id])
+
+  @@index([clientId])
+  @@index([responsableId])
+}
+
+model AppNotification {
+  id         String    @id @default(uuid())
+  userId     String
+  type       String
+  title      String
+  body       String
+  entityType String
+  entityId   String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
 }
