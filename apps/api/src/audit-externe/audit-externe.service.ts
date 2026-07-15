@@ -68,7 +68,7 @@ export class AuditExterneService {
       ]),
     ];
     return {
-      content: `﻿${rows.map((row) => row.map(escapeCsvCell).join(",")).join("\r\n")}`,
+      content: `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(",")).join("\r\n")}`,
       filename: `audit-externe-${new Date().toISOString().slice(0, 10)}.csv`,
     };
   }

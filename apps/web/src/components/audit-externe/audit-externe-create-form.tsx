@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import type { FieldErrors, UseFormRegister, UseFormWatch } from "react-hook-form";
+import type { UseFormRegister, UseFormWatch } from "react-hook-form";
 import { auditExterneCreateSchema, type AuditExterneCreateInput } from "@abc/shared";
 import { AuditExterneFields, type AuditExterneFieldValues } from "@/components/audit-externe/audit-externe-fields";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export function AuditExterneCreateForm() {
           <FieldGroup>
             <AuditExterneFields
               register={form.register as unknown as UseFormRegister<AuditExterneFieldValues>}
-              errors={form.formState.errors as FieldErrors<AuditExterneFieldValues>}
+              errors={form.formState.errors}
               watch={form.watch as unknown as UseFormWatch<AuditExterneFieldValues>}
             />
           </FieldGroup>
