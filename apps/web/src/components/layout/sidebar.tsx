@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, House, RefreshCw, UserCog, UserRoundCog, Users } from "lucide-react";
+import { CalendarDays, FileCheck2, House, RefreshCw, UserCog, UserRoundCog, Users } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { cn } from "@/lib/cn";
 
@@ -11,6 +11,7 @@ const planningItems = [
   { href: "/calendar", label: "Calendrier", icon: CalendarDays },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/consultants", label: "Consultants", icon: UserRoundCog },
+  { href: "/audit-externe", label: "Audit Externe", icon: FileCheck2 },
 ];
 
 const administrationItems = [
