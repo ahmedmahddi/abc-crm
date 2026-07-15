@@ -12,20 +12,20 @@ type Responsable = { id: string; name: string; email: string };
 type ListResponse<T> = { data: T[] };
 
 export type AuditExterneFieldValues = {
-  clientId: string;
-  responsableId: string;
-  typeAudit: string;
-  reference: string;
-  organisme: string;
-  auditeur: string;
+  clientId?: string;
+  responsableId?: string;
+  typeAudit?: string;
+  reference?: string;
+  organisme?: string;
+  auditeur?: string;
 };
 
-export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>({
+export function AuditExterneFields({
   register,
   errors,
 }: Readonly<{
-  register: UseFormRegister<TFieldValues>;
-  errors: FieldErrors<TFieldValues>;
+  register: UseFormRegister<AuditExterneFieldValues>;
+  errors: FieldErrors<AuditExterneFieldValues>;
 }>) {
   const clients = useQuery({
     queryKey: ["clients", "active-options"],
@@ -35,13 +35,12 @@ export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>
     queryKey: ["audit-externe", "responsables"],
     queryFn: () => apiFetch<ListResponse<Responsable>>("/audit-externe/responsables"),
   });
-  const registerField = register as unknown as UseFormRegister<AuditExterneFieldValues>;
 
   return (
     <>
       <Field data-invalid={Boolean(errors.clientId)}>
         <FieldLabel htmlFor="ae-clientId">Client</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" {...registerField("clientId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-clientId" {...register("clientId")}>
           <option value="">Selectionner un client</option>
           {clients.data?.data.map((client) => (
             <option key={client.id} value={client.id}>
@@ -54,7 +53,7 @@ export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field data-invalid={Boolean(errors.typeAudit)}>
           <FieldLabel htmlFor="ae-typeAudit">Type d&apos;audit</FieldLabel>
-          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-typeAudit" {...registerField("typeAudit")}>
+          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-typeAudit" {...register("typeAudit")}>
             {AUDIT_EXTERNE_TYPES.map((type) => (
               <option key={type} value={type}>
                 {AUDIT_EXTERNE_TYPE_LABELS[type]}
@@ -64,7 +63,7 @@ export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>
         </Field>
         <Field data-invalid={Boolean(errors.reference)}>
           <FieldLabel htmlFor="ae-reference">Reference</FieldLabel>
-          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-reference" {...registerField("reference")}>
+          <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-reference" {...register("reference")}>
             {AUDIT_EXTERNE_REFERENCES.map((reference) => (
               <option key={reference} value={reference}>
                 {AUDIT_EXTERNE_REFERENCE_LABELS[reference]}
@@ -75,17 +74,17 @@ export function AuditExterneFields<TFieldValues extends AuditExterneFieldValues>
       </div>
       <Field data-invalid={Boolean(errors.organisme)}>
         <FieldLabel htmlFor="ae-organisme">Organisme de certification</FieldLabel>
-        <Input id="ae-organisme" aria-invalid={Boolean(errors.organisme)} {...registerField("organisme")} />
+        <Input id="ae-organisme" aria-invalid={Boolean(errors.organisme)} {...register("organisme")} />
         {errors.organisme ? <FieldError>Indiquez l&apos;organisme certificateur.</FieldError> : null}
       </Field>
       <Field data-invalid={Boolean(errors.auditeur)}>
         <FieldLabel htmlFor="ae-auditeur">Auditeur</FieldLabel>
-        <Input id="ae-auditeur" aria-invalid={Boolean(errors.auditeur)} {...registerField("auditeur")} />
+        <Input id="ae-auditeur" aria-invalid={Boolean(errors.auditeur)} {...register("auditeur")} />
         {errors.auditeur ? <FieldError>Indiquez le nom de l&apos;auditeur.</FieldError> : null}
       </Field>
       <Field data-invalid={Boolean(errors.responsableId)}>
         <FieldLabel htmlFor="ae-responsableId">Responsable</FieldLabel>
-        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" {...registerField("responsableId")}>
+        <select className="h-11 rounded-md border bg-white px-3 text-sm" id="ae-responsableId" {...register("responsableId")}>
           <option value="">Selectionner un responsable</option>
           {responsables.data?.data.map((user) => (
             <option key={user.id} value={user.id}>

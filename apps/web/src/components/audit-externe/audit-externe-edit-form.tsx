@@ -3,42 +3,67 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 import type { FieldErrors, UseFormRegister } from "react-hook-form";
-import { auditExterneCreateSchema, type AuditExterneCreateInput } from "@abc/shared";
+import { auditExterneUpdateSchema, type AuditExterneUpdateInput } from "@abc/shared";
 import { AuditExterneFields, type AuditExterneFieldValues } from "@/components/audit-externe/audit-externe-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch, ApiError } from "@/lib/api";
 
-export function AuditExterneCreateForm() {
+type AuditExterneResponse = {
+  data: {
+    id: string;
+    version: number;
+    typeAudit: string;
+    reference: string;
+    organisme: string;
+    auditeur: string;
+    startDateTime: string;
+    endDateTime: string;
+    missionMode: "ONLINE" | "PRESENTIELLE";
+    location: string | null;
+    client: { id: string };
+    responsable: { id: string };
+  };
+};
+
+export function AuditExterneEditForm({ id }: Readonly<{ id: string }>) {
+  const query = useQuery({ queryKey: ["audit-externe", id], queryFn: () => apiFetch<AuditExterneResponse>(`/audit-externe/${id}`) });
+  if (query.isPending) return <Skeleton className="h-96 border" />;
+  if (query.isError) return <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">Impossible de charger cet audit externe.</p>;
+  return <LoadedAuditExterneEditForm record={query.data.data} />;
+}
+
+function LoadedAuditExterneEditForm({ record }: Readonly<{ record: AuditExterneResponse["data"] }>) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const form = useForm<z.input<typeof auditExterneCreateSchema>, unknown, AuditExterneCreateInput>({
+  const form = useForm<z.input<typeof auditExterneUpdateSchema>, unknown, AuditExterneUpdateInput>({
     defaultValues: {
-      clientId: "",
-      responsableId: "",
-      typeAudit: "CERTIFICATION",
-      reference: "NORME_9001",
-      organisme: "",
-      auditeur: "",
-      missionMode: "PRESENTIELLE",
-      startDateTime: "",
-      endDateTime: "",
-      location: "",
+      clientId: record.client.id,
+      responsableId: record.responsable.id,
+      typeAudit: record.typeAudit as AuditExterneUpdateInput["typeAudit"],
+      reference: record.reference as AuditExterneUpdateInput["reference"],
+      organisme: record.organisme,
+      auditeur: record.auditeur,
+      missionMode: record.missionMode,
+      startDateTime: record.startDateTime.slice(0, 16),
+      endDateTime: record.endDateTime.slice(0, 16),
+      location: record.location ?? "",
+      version: record.version,
     },
-    resolver: zodResolver(auditExterneCreateSchema),
+    resolver: zodResolver(auditExterneUpdateSchema),
   });
   const mutation = useMutation({
-    mutationFn: (input: AuditExterneCreateInput) => apiFetch<{ data: { id: string } }>("/audit-externe", { method: "POST", body: JSON.stringify(input) }),
-    onSuccess: async (result) => {
+    mutationFn: (input: AuditExterneUpdateInput) => apiFetch<AuditExterneResponse>(`/audit-externe/${record.id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["audit-externe"] });
-      await queryClient.invalidateQueries({ queryKey: ["missions"] });
-      router.push(`/audit-externe/${result.data.id}`);
+      router.push(`/audit-externe/${record.id}`);
     },
   });
   const submit = form.handleSubmit((values) => mutation.mutate(values));
@@ -89,12 +114,12 @@ export function AuditExterneCreateForm() {
       </Card>
       {mutation.isError ? (
         <p className="border-l-2 border-danger pl-3 text-sm text-danger" role="alert">
-          {mutation.error instanceof ApiError ? mutation.error.message : "Impossible de creer l'audit externe."}
+          {mutation.error instanceof ApiError ? mutation.error.message : "Impossible d'enregistrer les modifications."}
         </p>
       ) : null}
       <div className="sticky bottom-16 z-20 flex justify-end gap-3 rounded-lg border bg-white/95 p-3 shadow-md backdrop-blur lg:bottom-0">
-        <Button asChild variant="outline"><Link href="/audit-externe">Annuler</Link></Button>
-        <Button disabled={mutation.isPending} type="submit">{mutation.isPending ? "Creation..." : "Creer l'audit"}</Button>
+        <Button asChild type="button" variant="outline"><Link href={`/audit-externe/${record.id}`}>Annuler</Link></Button>
+        <Button disabled={mutation.isPending} type="submit">{mutation.isPending ? "Enregistrement..." : "Enregistrer"}</Button>
       </div>
     </form>
   );
