@@ -46,3 +46,24 @@ export type MissionMode = (typeof MISSION_MODES)[number];
 
 export const ORDRE_MISSION_STATUSES = ["DRAFT", "VALIDATED", "PRINTED", "CANCELLED", "ARCHIVED"] as const;
 export type OrdreMissionStatus = (typeof ORDRE_MISSION_STATUSES)[number];
+
+export const AUDIT_EXTERNE_TYPES = ["CERTIFICATION", "SUIVI_1", "SUIVI_2"] as const;
+export type AuditExterneType = (typeof AUDIT_EXTERNE_TYPES)[number];
+export const AUDIT_EXTERNE_TYPE_LABELS: Record<AuditExterneType, string> = {
+  CERTIFICATION: "Certification",
+  SUIVI_1: "Suivi 1",
+  SUIVI_2: "Suivi 2",
+};
+
+export const AUDIT_EXTERNE_REFERENCES = ["NORME_9001", "QSE", "NORME_22000", "FSSC", "BRC", "BRC_IFS"] as const;
+export type AuditExterneReference = (typeof AUDIT_EXTERNE_REFERENCES)[number];
+export const AUDIT_EXTERNE_REFERENCE_LABELS: Record<AuditExterneReference, string> = {
+  NORME_9001: "9001",
+  QSE: "QSE",
+  NORME_22000: "22000",
+  FSSC: "FSSC",
+  BRC: "BRC",
+  BRC_IFS: "BRC+IFS",
+};
+
+export const AUDIT_EXTERNE_REMINDER_MONTHS_BEFORE = 3;
